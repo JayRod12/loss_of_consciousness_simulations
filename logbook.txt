@@ -1,0 +1,20 @@
+
+10/02/2018
+We need to lay down the objectives of the experiments
+
+Objectives:
+- Build a Watts-Strogatz network - Done
+- Simulate the results in the notes of Watts-Strogatz networks with varying p - In progress
+- Measure SWI - Done
+- Simulate experiment of excitatory and inhibitory neurons in the brain.
+- Build a model using the connectome, find appropriate weights
+
+Measuring dynamics:
+- Measure delta power graph i.e. spectral power vs frequency
+- SWI
+- Modularity of the network
+
+17/02/2018
+
+Questions:
+  - How do I compute the spectral density function of a network of neurons?
