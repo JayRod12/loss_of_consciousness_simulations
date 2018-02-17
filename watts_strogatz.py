@@ -8,9 +8,9 @@ def to_edge_list(adj_list):
     return edge_list
 
 def watts_strogatz(N, k, p, eqs, thres_eq, reset_eq, method='rk4',
-        on_pre_action=''):
+        on_pre_action='', delay=''):
     G = NeuronGroup(N, eqs, threshold=thres_eq, reset=reset_eq, method=method)
-    S = Synapses(G, G, on_pre=on_pre_action)
+    S = Synapses(G, G, on_pre=on_pre_action, delay=delay)
     cij = np.zeros((N,N),dtype=int)
     for i in range(N):
         for j in range(i-k//2, i+k//2+1):
