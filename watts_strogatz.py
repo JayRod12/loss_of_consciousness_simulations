@@ -11,10 +11,11 @@ def watts_strogatz(N, k, p, eqs, thres_eq, reset_eq, method='rk4',
         on_pre_action='', delay=''):
     G = NeuronGroup(N, eqs, threshold=thres_eq, reset=reset_eq, method=method)
     S = Synapses(G, G, on_pre=on_pre_action, delay=delay)
-    cij = np.zeros((N,N),dtype=int)
+    cij = np.zeros((N,N), dtype=int)
     for i in range(N):
         for j in range(i-k//2, i+k//2+1):
             j = j%N
+
             if i != j:
                 cij[i,j] = 1
                 cij[j,i] = 1
