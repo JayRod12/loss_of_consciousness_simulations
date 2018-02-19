@@ -26,19 +26,19 @@ N_INHIBITORY = 200
 # Number of excitatory neurons connecting to a single inhibitory neuron
 FOCALITY = 4
 
-
-
-def create_excitatory_module(N, N_CONN):
-    G = NeuronGroup(N,
+def create_excitatory_neurons(N, N_CONN, N_MODULES):
+    G = NeuronGroup(N*N_MODULES,
             EXCITATORY_NEURON_EQS,
             threshold=THRES_EQ,
             reset=EXCITATORY_RESET_EQ,
             method='rk4')
     S = Synapses(G, on_pre='v += EX_EX_SCALING * EX_EX_WEIGHT')
-    S.connect(i=np.random.randint(N, size=N_CONN),
-            j=np.random.randint(N, size=N_CONN))
+    for module in range(N_MODULES):
+        i = np.random.randint(N, size=N_CONN)+N*module
+        j = np.random.randint(N, size=N_CONN)+N*module
+        S.connect(i=i, j=j)
+
     S.delay[:,:] = 'rand()*EX_EX_MAX_DELAY'
-    #print(S.delay)
     return G, S
 
 def create_inhibitory_neurons(N):
@@ -52,16 +52,7 @@ def create_inhibitory_neurons(N):
 
 # N_MODULES modules of N_EXCITATORY excitatory neurons each, with
 # N_INTERNAL_CONN internal random connections.
-#EXCITATORY_MODULES = []
-#for i in range(N_MODULES):
-#    EXCITATORY_MODULES.append(
-#        create_excitatory_module(N_EXCITATORY, N_INTERNAL_CONN)
-#    )
-EXCITATORY_MODULES = [
-    create_excitatory_module(N_EXCITATORY, N_INTERNAL_CONN)
-        for _ in range(N_MODULES)
-]
-
+EX_NEURONS, EX_EX_SYN = create_excitatory_neurons(N_EXCITATORY, N_INTERNAL_CONN, N_MODULES)
 INHIBITORY_NEURONS = create_inhibitory_neurons(N_INHIBITORY)
 
 
@@ -70,31 +61,26 @@ INHIBITORY_NEURONS = create_inhibitory_neurons(N_INHIBITORY)
 # 4 excitatory neurons (from the same module) project to each inhibitory neuron
 # Select 4 successively-numbered neurons from each module to map it to an
 # inhibitory neuron.
-EX_IN_SYN = []
+EX_IN_SYN = Synapses(EX_NEURONS,
+    INHIBITORY_NEURONS,
+    on_pre='v += EX_IN_SCALING * rand() * EX_IN_MAX_WEIGHT',
+    delay=1*ms
+)
+
 perm = np.random.permutation(N_INHIBITORY)
 for neuron_group in perm:
-    module = neuron_group // (N_EXCITATORY / FOCALITY)
-    neuron_index = neuron_group % (N_EXCITATORY / FOCALITY)
-    S = Synapses(EXCITATORY_MODULES[module][0],
-            INHIBITORY_NEURONS,
-            on_pre='v += EX_IN_SCALING * rand() * EX_IN_MAX_WEIGHT',
-            delay=1*ms)
-    S.connect(i=[neuron_index + i for i in range(FOCALITY)],
-            j=neuron_group)
-    EX_IN_SYN.append(S)
+    i = [neuron_group*FOCALITY+k for k in range(FOCALITY)]
+    EX_IN_SYN.connect(i=i, j=neuron_group)
 
 # Diffuse inhibitory-excitatory connections
-IN_EX_SYN = []
-for module in range(N_MODULES):
-    S = Synapses(INHIBITORY_NEURONS,
-            EXCITATORY_MODULES[module][0],
-            on_pre='v += IN_EX_SCALING * rand() * IN_EX_MIN_WEIGHT',
-            delay=1*ms)
+IN_EX_SYN = Synapses(INHIBITORY_NEURONS,
+    EX_NEURONS,
+    on_pre='v += IN_EX_SCALING * rand() * IN_EX_MIN_WEIGHT',
+    delay=1*ms
+)
+for i in range(N_INHIBITORY):
+    IN_EX_SYN.connect(i=i, j=range(N_MODULES*N_EXCITATORY))
 
-    for in_neuron in range(N_INHIBITORY):
-        # One-to-all
-        S.connect(i=in_neuron, j=range(N_EXCITATORY))
-    IN_EX_SYN.append(S)
 
 
 # Diffuse inhibitory-inhibitory connections
@@ -106,31 +92,20 @@ for i in range(N_INHIBITORY):
     IN_IN_SYN.connect(i=i, j=range(N_INHIBITORY))
 
 
+POISSON_INPUT_WEIGHT=10*mV
+PI_EX = PoissonInput(EX_NEURONS, 'v', len(EX_NEURONS), 1*Hz, weight=POISSON_INPUT_WEIGHT)
 
-G1, G2, G3, G4, G5, G6, G7, G8 = map(lambda tup: tup[0], EXCITATORY_MODULES)
-S1, S2, S3, S4, S5, S6, S7, S8 = map(lambda tup: tup[1], EXCITATORY_MODULES)
-SS1, SS2, SS3, SS4, SS5, SS6, SS7, SS8 = IN_EX_SYN
-
-NEURON_GROUPS = [G1, G2, G3, G4, G5, G6, G7, G8, INHIBITORY_NEURONS]
-
-POISSON_INPUT_WEIGHT = 15*mV
-I1, I2, I3, I4, I5, I6, I7, I8, I9 = [
-    PoissonInput(G, 'v', len(G), 1*Hz, weight=POISSON_INPUT_WEIGHT) for 
-        G in NEURON_GROUPS
-]
+M = SpikeMonitor(EX_NEURONS)
+M2 = SpikeMonitor(INHIBITORY_NEURONS)
 
 # Monitors
-M1, M2, M3, M4, M5, M6, M7, M8, M9 = list(map(lambda G: SpikeMonitor(G),
-        [G1, G2, G3, G4, G5, G6, G7, G8, INHIBITORY_NEURONS]))
-
-spikemons = [M1, M2, M3, M4, M5, M6, M7, M8, M9]
 duration = 1000*ms
 run(duration)
 
-for i in range(N_MODULES+1):
-    plt.subplot(N_MODULES+1,1,i+1)
-    plt.plot(spikemons[i].t/ms, spikemons[i].i, '.b') 
-
+plt.subplot(211)
+plt.plot(M.t/ms, M.i, '.b') 
+plt.subplot(212)
+plt.plot(M2.t/ms, M2.i, '.k') 
 plt.show()
     
 
