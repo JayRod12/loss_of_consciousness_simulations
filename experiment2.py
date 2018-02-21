@@ -12,10 +12,11 @@ from brian2 import *
 duration = 1000*ms
 N = 2
 G = NeuronGroup(N,
-        EXCITATORY_NEURON_EQS,
-        threshold=THRES_EQ,
-        reset=EXCITATORY_RESET_EQ,
-        method='rk4')
+    EXCITATORY_NEURON_EQS,
+    threshold=THRES_EQ,
+    reset=EXCITATORY_RESET_EQ,
+    method='rk4'
+)
 
 I0 = 4
 G.I = list([I0]*N)*mV/ms

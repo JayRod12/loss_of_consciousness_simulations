@@ -35,8 +35,8 @@ G = NeuronGroup(N_EX+N_IN,
 EX_EX_SYN = Synapses(G, on_pre='v += EX_EX_SCALING * EX_EX_WEIGHT')
 for mod in range(N_MOD):
     N = N_EX//N_MOD
-    i = np.random.randint(N, size=N_MOD_CONN)+N*mod
-    j = np.random.randint(N, size=N_MOD_CONN)+N*mod
+    i = np.random.randint(N, size=N_MOD_CONN) + N * mod
+    j = np.random.randint(N, size=N_MOD_CONN) + N * mod
     EX_EX_SYN.connect(i=i, j=j)
 
 # Set delay for above created connections
@@ -77,6 +77,7 @@ for in_neuron in range(N_IN):
 
 POISSON_INPUT_WEIGHT=2*mV
 PI_EX = PoissonInput(G, 'v', len(G), 1*Hz, weight=POISSON_INPUT_WEIGHT)
+G.v = -65*mV
 
 M = SpikeMonitor(G)
 
