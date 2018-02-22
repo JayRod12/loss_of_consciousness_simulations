@@ -9,7 +9,7 @@ import power_spectral_density as psd
 # Use Inhibitory equations for the inhibitory neurons as well as negative weights
 
 EX_EX_WEIGHT = 1*mV
-IN_EX_MIN_WEIGHT = 1*mV
+IN_EX_MIN_WEIGHT = -1*mV
 EX_IN_MAX_WEIGHT = 1*mV
 IN_IN_MIN_WEIGHT = -1*mV
 
@@ -55,36 +55,43 @@ EX_EX_SYN.delay[:,:] = 'rand()*EX_EX_MAX_DELAY'
 # Focal excitatory-inhibitory connections
 # 4 to 1 ex-in conn
 EX_IN_SYN = Synapses(EX_G, IN_G,
-    on_pre='v += rand() * (EX_IN_SCALING * EX_IN_MAX_WEIGHT)',
+    model='w : volt',
+    on_pre='v += w',
     delay=1*ms
 )
 perm = np.random.permutation(N_IN)
 for ex_group, in_neuron in enumerate(perm):
     i = [ex_group*FOCALITY+k for k in range(FOCALITY)]
-    #i = [in_neuron*FOCALITY+k for k in range(FOCALITY)]
-    # Inhibitory neurons start after N_EX neurons
     j=in_neuron
     EX_IN_SYN.connect(i=i, j=j)
 
+EX_IN_SYN.w[:,:] = rand() * EX_IN_SCALING * EX_IN_MAX_WEIGHT
 
 # Diffuse inhibitory-excitatory connections
 IN_EX_SYN = Synapses(IN_G, EX_G,
-    on_pre='v -= (IN_EX_SCALING * rand() * IN_EX_MIN_WEIGHT)',
+    model='w : volt',
+    on_pre='v += w',
     delay=1*ms
 )
 for in_neuron in range(N_IN):
     IN_EX_SYN.connect(i=in_neuron, j=range(N_EX))
 
+IN_EX_SYN.w[:,:] = rand() * IN_EX_SCALING * IN_EX_MIN_WEIGHT
+
 # Diffuse inhibitory-inhibitory connections
 IN_IN_SYN = Synapses(IN_G,
-    on_pre='v += (IN_IN_SCALING * rand() * IN_IN_MIN_WEIGHT)',
+    model='w : volt',
+    on_pre='v += w',
     delay=1*ms
 )
 
 for in_neuron in range(N_IN):
     IN_IN_SYN.connect(i=in_neuron, j=np.arange(N_IN))
 
+IN_IN_SYN.w[:,:] = rand() * IN_IN_SCALING * IN_IN_MIN_WEIGHT
 
+
+# Poisson input to ensure network activity doesn't die down
 POISSON_INPUT_WEIGHT=2*mV
 PI_EX = PoissonInput(EX_G, 'v', len(EX_G), 1*Hz, weight=POISSON_INPUT_WEIGHT)
 PI_IN = PoissonInput(IN_G, 'v', len(IN_G), 1*Hz, weight=POISSON_INPUT_WEIGHT)
