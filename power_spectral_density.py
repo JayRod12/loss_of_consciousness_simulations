@@ -13,6 +13,8 @@ def moving_average(t, dt, shift, total_steps):
     l = 0
 
     while l < N:
+        # Find next interval [t0, t1)
+
         # Find first index >= t0
         if t[l] < t0:
             while l + 1 < N and t[l + 1] < t0:
@@ -22,27 +24,32 @@ def moving_average(t, dt, shift, total_steps):
         if l == N:
             break
 
-        # If first index > t1, then it's outside the slot
-        if t[l] > t1:
+        # If first index >= t1, then it's outside the slot
+        if t[l] >= t1:
             ma = 0
         else:
             # Find the last index inside the time slot
             r = l
-            while r + 1 < N and t[r + 1] <= t1:
+            while r + 1 < N and t[r + 1] < t1:
                 r += 1
             ma = r-l+1
+        #print("[{}, {}) -> [{},{}]: {}".format(t0, t1, t[l], max(t[l], t[r]), ma))
 
         MA.append(ma)
         t0 = t0 + shift
         t1 = t0 + dt
 
-    # Pad array with zeros at the end until a length of 'total_steps'
-    MA = np.pad(MA, (0, total_steps-len(MA)), 'constant')
+    MA = np.array(MA, dtype=np.float)
+    if total_steps > len(MA):
+        # Pad array with zeros at the end until a length of 'total_steps'
+        MA = np.pad(MA, (0, total_steps-len(MA)), 'constant')
     # Calculate # spikes / time step i.e. the average
     MA /= dt
     return MA
 
 def power_spectrum(t, dt, shift, total_steps):
     ma = moving_average(t, dt, shift, total_steps)
-    return welch(ma)
+    # e.g. Shift = 20ms
+    # Therefore the sampling frequency is 1/20ms = 1 / 0.02s = 50Hz
+    return welch(ma, int(1.0/(float(shift)/1000)))
 
