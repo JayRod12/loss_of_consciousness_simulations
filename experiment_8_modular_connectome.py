@@ -1,17 +1,18 @@
-import math
-import numpy as np
-import matplotlib.pyplot as plt
 from brian2 import *
 from izhikevich_constants import *
-import power_spectral_density as psd
-import pickle
+
 import sys
+import time
+import math
+import pickle
+import numpy as np
+import matplotlib.pyplot as plt
+import power_spectral_density as psd
+
 # Areas of Brodmann used as modules of neurons
 #
 # The i'th module's excitatory neurons are found at [i * N_EX_PER_MOD, (i+1) * N_EX_PER_MOD)
 # The i'th module's inhibitory neurons are found at [i * N_EX_PER_MOD, (i+1) * N_EX_PER_MOD)
-#
-
 
 with open('precomputed_exp_8.pickle', 'rb') as f:
     config = pickle.load(f)
@@ -19,13 +20,13 @@ with open('precomputed_exp_8.pickle', 'rb') as f:
 [N, N_MOD, N_PER_MOD, N_EX, N_IN, N_EX_PER_MOD, N_IN_PER_MOD,
     WEIGHTS, DELAY, CONNECTIONS, INTERNAL_SYNAPSE_PROP, FOCALITY] = config
 
-
 EX_G = NeuronGroup(N_EX,
     EXCITATORY_NEURON_EQS,
     threshold=THRES_EQ,
     reset=EXCITATORY_RESET_EQ,
     method='rk4'
 )
+
 IN_G = NeuronGroup(N_IN,
     INHIBITORY_NEURON_EQS,
     threshold=THRES_EQ,
@@ -52,6 +53,7 @@ IN_IN_MIN_WEIGHT = -1*mV
 
 # Synapses
 
+start = time.time()
 sys.stdout.write("Setting up intermodular excitatory-excitatory synapses... ")
 sys.stdout.flush()
 
@@ -60,16 +62,22 @@ EX_EX_INTER_SYN = Synapses(EX_G,
     on_pre='v += w'
 )
 N_INTRA_SYNAPSES = 4
-# How to connect to modules? How many synapses between two modules?
+# Improvements:
+# How to connect two modules? How many synapses between two modules?
 for i in range(N_MOD):
     for j in CONNECTIONS[i]:
         src = np.random.randint(N_EX_PER_MOD, size=N_INTRA_SYNAPSES) + i * N_EX_PER_MOD
         dst = np.random.randint(N_EX_PER_MOD, size=N_INTRA_SYNAPSES) + j * N_EX_PER_MOD
+
         EX_EX_INTER_SYN.connect(i=src, j=dst)
         EX_EX_INTER_SYN.w[src[:, None],dst] = min(WEIGHTS[i, j] * 1000, 10) * mV
 
-sys.stdout.write("Done\n")
+elapsed = time.time() - start
+sys.stdout.write("Done [{} seconds]\n".format(elapsed))
 sys.stdout.flush()
+
+exit()
+
 
 
 
@@ -265,11 +273,6 @@ f, pxx = psd.power_spectrum(X, dt, shift, total_steps)
 plt.semilogy(f, pxx)
 plt.xlabel('Frequency (Hz)')
 plt.ylabel('Power Spectrum')
-
-plt.figure(5)
-plt.plot(X, Y, '.b')
-plt.xlabel("Time (ms)")
-plt.ylabel("Excitatory Neuron Index")
 
 
 plt.show()
