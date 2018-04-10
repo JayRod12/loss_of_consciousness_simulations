@@ -1,5 +1,6 @@
 from brian2 import *
 from izhikevich_constants import *
+from numpy.random import random_sample
 from collections import defaultdict
 
 import sys
@@ -28,13 +29,16 @@ import power_spectral_density as psd
 #  - Excitatory-inhibitory connections random and focal; Inhibitory-Excitatory conns are
 #       diffuse, one-to-all: good option
 
-np.random.seed(177876383)
+#np.random.seed(177876383)
+#np.random.seed(177735)
 DELAY = 5*ms
+FIXED_DELAY = 5*ms
 
 N_EX = 40
 N_IN = 10
 
-EX_CONNECTIVITY = 0.6
+EX_CONNECTIVITY = 0.4
+IN_CONNECTIVITY = 0.1
 
 EX_G = NeuronGroup(N_EX,
     EXCITATORY_NEURON_EQS,
@@ -42,6 +46,7 @@ EX_G = NeuronGroup(N_EX,
     reset=EXCITATORY_RESET_EQ,
     method='rk4'
 )
+EX_G.I = 20*random_sample(N_EX)*mV/ms
 
 IN_G = NeuronGroup(N_IN,
     INHIBITORY_NEURON_EQS,
@@ -49,34 +54,38 @@ IN_G = NeuronGroup(N_IN,
     reset=INHIBITORY_RESET_EQ,
     method='rk4'
 )
+IN_G.I = 10*random_sample(N_IN)*mV/ms
 
 
 # PARAMS
-EX_EX_WEIGHT = 4*mV
+EX_EX_WEIGHT = 5*mV
 EX_IN_WEIGHT = 10*mV
 IN_EX_WEIGHT = -10*mV
+IN_IN_WEIGHT = -10*mV
 EX_EX_VARIANCE = 1*mV
-EX_IN_VARIANCE = 2*mV
-IN_EX_VARIANCE = 2*mV
+EX_IN_VARIANCE = 1*mV
+IN_EX_VARIANCE = 1*mV
+IN_IN_VARIANCE = 1*mV
 
 
 EX_EX_SYN = Synapses(EX_G,
     model='w: volt',
     on_pre='v += w',
-    delay=DELAY
+    delay=FIXED_DELAY
 )
-EX_EX_CONNECTION = [(i, j) for i in range(N_EX) for j in range(N_EX) if random() <= EX_CONNECTIVITY]
-tmp_i, tmp_j = map(list, zip(*EX_EX_CONNECTION))
+ex_ex_connections = [(i, j) for i in range(N_EX) for j in range(N_EX) if random() <= EX_CONNECTIVITY]
+tmp_i, tmp_j = map(list, zip(*ex_ex_connections))
 EX_EX_SYN.connect(i=tmp_i, j=tmp_j)
-EX_EX_SYN.connect(i=list(range(N_EX)), j=list(range(N_EX)))
 EX_EX_SYN.w[:,:] = 'EX_EX_WEIGHT + EX_EX_VARIANCE*(2*rand() - 1)'
 
 
 # Connect excitatory neurons to inhibitory neurons like so:
-# 0-9 -> 0
-# 10-19 -> 1
-# 20-29 -> 2
-# 30-39 -> 3
+# 0-3 -> 0
+# 4-7 -> 1
+# 8-11 -> 2
+# 12-15 -> 3
+# ...
+# 36-39 -> 9 
 EX_IN_SYN = Synapses(EX_G, IN_G,
     model='w: volt',
     on_pre='v += w',
@@ -98,20 +107,24 @@ for in_neuron in range(N_IN):
 IN_EX_SYN.w[:,:] = 'IN_EX_WEIGHT + IN_EX_VARIANCE*(2*rand() - 1)'
 
 
-POISSON_INPUT_WEIGHT=5*mV
-PI_EX = PoissonInput(EX_G, 'v', len(EX_G), 30*Hz, weight=POISSON_INPUT_WEIGHT)
+IN_IN_SYN = Synapses(IN_G, IN_G,
+    model='w: volt',
+    on_pre='v += w',
+    delay=FIXED_DELAY
+)
+in_in_connections = [(i, j) for i in range(N_IN) for j in range(N_IN) if random() <= IN_CONNECTIVITY]
+tmp_i, tmp_j = map(list, zip(*in_in_connections))
+IN_IN_SYN.connect(i=tmp_i, j=tmp_j)
+IN_IN_SYN.w[:,:] = 'IN_IN_WEIGHT + IN_IN_VARIANCE*(2*rand() - 1)'
 
-
-
-
+# Monitoring and simulation
 M = SpikeMonitor(EX_G)
 duration = 5000*ms
 run(duration)
 
-plot_time = 500
 spike_t, spike_idx = M.t/ms, M.i
 
-MEASURE_START = 1000
+MEASURE_START = 2000
 MEASURE_DURATION = 500
 
 X1, Y1 = [], []
