@@ -14,26 +14,12 @@ import matplotlib.pyplot as plt
 import power_spectral_density as psd
 
 # Model a single Brodmann area as 50 neurons
-# Ping oscillations 35 Hz
-
-# Network structure:
-#  Excitatory -> Inhibitory
-#     ^   |
-#     |   |
-#     -----
-
-# Configuration options:
-#  - Each excitatory neuron stimulates one inhibitory neuron which also
-#       stimulates it back: doesn't work well.
-#  - Excitatory-inhibitory and opposite connections are random and not necessarily bidirectional:
-#       there isn't enough syncronization throughout the module, not good enough.
-#  - Excitatory-inhibitory connections random and focal; Inhibitory-Excitatory conns are
-#       diffuse, one-to-all: good option
+# Full-Ping oscillations >30 Hz
 
 #np.random.seed(177876383)
 #np.random.seed(177735)
+np.random.seed(25)
 DELAY = 5*ms
-FIXED_DELAY = 5*ms
 
 N_EX = 40
 N_IN = 10
@@ -42,10 +28,10 @@ EX_CONNECTIVITY = 0.4
 IN_CONNECTIVITY = 0.1
 
 EX_G = ExcitatoryNeuronGroup(N_EX)
-EX_G.I = 20*random_sample(N_EX)*mV/ms
+EX_G.I = 15*random_sample(N_EX)*mV/ms
 
 IN_G = InhibitoryNeuronGroup(N_IN)
-IN_G.I = 10*random_sample(N_IN)*mV/ms
+IN_G.I = 3*random_sample(N_IN)*mV/ms
 
 
 # PARAMS
@@ -54,53 +40,43 @@ EX_IN_WEIGHT = 10*mV
 IN_EX_WEIGHT = -10*mV
 IN_IN_WEIGHT = -10*mV
 
+# 1-to-1 connections: EX_CONNECTIVITY% of all synapses
 EX_EX_SYN = Synapses(EX_G,
     model='w: volt',
     on_pre='v += w',
-    delay=FIXED_DELAY
+    delay=DELAY
 )
-ex_ex_connections = [(i, j) for i in range(N_EX) for j in range(N_EX) if random() <= EX_CONNECTIVITY]
-tmp_i, tmp_j = map(list, zip(*ex_ex_connections))
-EX_EX_SYN.connect(i=tmp_i, j=tmp_j)
+EX_EX_SYN.connect(p=EX_CONNECTIVITY)
 EX_EX_SYN.w = EX_EX_WEIGHT
 
 
-# Connect excitatory neurons to inhibitory neurons like so:
-# 0-3 -> 0
-# 4-7 -> 1
-# 8-11 -> 2
-# 12-15 -> 3
-# ...
-# 36-39 -> 9 
+# Many-to-one connection: 4 excitatory to 1 inhibitory
 EX_IN_SYN = Synapses(EX_G, IN_G,
     model='w: volt',
     on_pre='v += w',
     delay=DELAY
 )
-EX_NEURONS = np.array(range(N_EX), dtype=int32)
-EX_IN_SYN.connect(i=EX_NEURONS, j=EX_NEURONS/4)
+EX_IN_SYN.connect(j='int(i/4)')
 EX_IN_SYN.w = EX_IN_WEIGHT
 
 
+# All-to-all: diffuse inhibitory to excitatory connections
 IN_EX_SYN = Synapses(IN_G, EX_G,
     model='w: volt',
     on_pre='v += w',
     delay=DELAY
 )
-IN_NEURONS = np.array(range(N_IN), dtype=int32)
-for in_neuron in range(N_IN):
-    IN_EX_SYN.connect(i=in_neuron, j=EX_NEURONS)
+IN_EX_SYN.connect(p=1.0)
 IN_EX_SYN.w = IN_EX_WEIGHT
 
 
+# 1-to-1: IN_CONNECTIVITY% of all synapses
 IN_IN_SYN = Synapses(IN_G, IN_G,
     model='w: volt',
     on_pre='v += w',
-    delay=FIXED_DELAY
+    delay=DELAY
 )
-in_in_connections = [(i, j) for i in range(N_IN) for j in range(N_IN) if random() <= IN_CONNECTIVITY]
-tmp_i, tmp_j = map(list, zip(*in_in_connections))
-IN_IN_SYN.connect(i=tmp_i, j=tmp_j)
+IN_IN_SYN.connect(p=IN_CONNECTIVITY)
 IN_IN_SYN.w = IN_IN_WEIGHT
 
 # Monitoring and simulation
@@ -110,7 +86,7 @@ run(duration)
 
 spike_t, spike_idx = M.t/ms, M.i
 
-MEASURE_START = 2000
+MEASURE_START = 1000
 MEASURE_DURATION = 500
 
 X1, Y1 = [], []
@@ -118,8 +94,6 @@ for spike_t, spike_idx in zip(M.t/ms, M.i):
     if MEASURE_START <= spike_t < MEASURE_START + MEASURE_DURATION:
         X1.append(spike_t)
         Y1.append(spike_idx)
-
-
 
 X, Y = M.t/ms, M.i
 
