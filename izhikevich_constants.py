@@ -2,34 +2,44 @@ from brian2.units import *
 
 # Izhikevich excitatory and inhibitory neurons
 
-a = 0.02/ms
-c = -65*mV
-b_ex = 0.2/ms
-d_ex = 8*mV/ms
-b_in = 0.25/ms
-d_in = 2*mV/ms
+#a = 0.02/ms
+#c = -65*mV
+#b = 0.2/ms
+#d = 8*mV/ms
+#b = 0.25/ms
+#d = 2*mV/ms
 Vt=30*mV
 
 EXCITATORY_NEURON_EQS = '''
   dv/dt=(0.04/(mV*ms))*(v**2)+(5/ms)*v+140*mV/ms-u+I : volt
-  du/dt=a*(b_ex*v-u) : volt/second
+  du/dt=a*(b*v-u) : volt/second
   I : volt/second
+  rnd : 1
+  a : 1/second
+  b : 1/second
+  c : volt
+  d : volt/second
 '''
 
 INHIBITORY_NEURON_EQS = '''
   dv/dt=(0.04/(mV*ms))*(v**2)+(5/ms)*v+140*mV/ms-u+I : volt
-  du/dt=a*(b_in*v-u) : volt/second
+  du/dt=a*(b*v-u) : volt/second
   I : volt/second
+  rnd : 1
+  a : 1/second
+  b : 1/second
+  c : volt
+  d : volt/second
 '''
   
 EXCITATORY_RESET_EQ = '''
   v=c
-  u=u+d_ex
+  u=u+d
 '''
 
 INHIBITORY_RESET_EQ = '''
   v=c
-  u=u+d_in
+  u=u+d
 '''
 
 THRES_EQ = 'v>=Vt'

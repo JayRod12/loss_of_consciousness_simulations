@@ -1,4 +1,5 @@
 from brian2 import *
+from neuron_groups import *
 from izhikevich_constants import *
 from numpy.random import random_sample
 from collections import defaultdict
@@ -40,20 +41,10 @@ N_IN = 10
 EX_CONNECTIVITY = 0.4
 IN_CONNECTIVITY = 0.1
 
-EX_G = NeuronGroup(N_EX,
-    EXCITATORY_NEURON_EQS,
-    threshold=THRES_EQ,
-    reset=EXCITATORY_RESET_EQ,
-    method='rk4'
-)
+EX_G = ExcitatoryNeuronGroup(N_EX)
 EX_G.I = 20*random_sample(N_EX)*mV/ms
 
-IN_G = NeuronGroup(N_IN,
-    INHIBITORY_NEURON_EQS,
-    threshold=THRES_EQ,
-    reset=INHIBITORY_RESET_EQ,
-    method='rk4'
-)
+IN_G = InhibitoryNeuronGroup(N_IN)
 IN_G.I = 10*random_sample(N_IN)*mV/ms
 
 
@@ -62,11 +53,6 @@ EX_EX_WEIGHT = 5*mV
 EX_IN_WEIGHT = 10*mV
 IN_EX_WEIGHT = -10*mV
 IN_IN_WEIGHT = -10*mV
-EX_EX_VARIANCE = 1*mV
-EX_IN_VARIANCE = 1*mV
-IN_EX_VARIANCE = 1*mV
-IN_IN_VARIANCE = 1*mV
-
 
 EX_EX_SYN = Synapses(EX_G,
     model='w: volt',
@@ -76,7 +62,7 @@ EX_EX_SYN = Synapses(EX_G,
 ex_ex_connections = [(i, j) for i in range(N_EX) for j in range(N_EX) if random() <= EX_CONNECTIVITY]
 tmp_i, tmp_j = map(list, zip(*ex_ex_connections))
 EX_EX_SYN.connect(i=tmp_i, j=tmp_j)
-EX_EX_SYN.w[:,:] = 'EX_EX_WEIGHT + EX_EX_VARIANCE*(2*rand() - 1)'
+EX_EX_SYN.w = EX_EX_WEIGHT
 
 
 # Connect excitatory neurons to inhibitory neurons like so:
@@ -93,7 +79,7 @@ EX_IN_SYN = Synapses(EX_G, IN_G,
 )
 EX_NEURONS = np.array(range(N_EX), dtype=int32)
 EX_IN_SYN.connect(i=EX_NEURONS, j=EX_NEURONS/4)
-EX_IN_SYN.w[:,:] = 'EX_IN_WEIGHT + EX_IN_VARIANCE*(2*rand() - 1)'
+EX_IN_SYN.w = EX_IN_WEIGHT
 
 
 IN_EX_SYN = Synapses(IN_G, EX_G,
@@ -104,7 +90,7 @@ IN_EX_SYN = Synapses(IN_G, EX_G,
 IN_NEURONS = np.array(range(N_IN), dtype=int32)
 for in_neuron in range(N_IN):
     IN_EX_SYN.connect(i=in_neuron, j=EX_NEURONS)
-IN_EX_SYN.w[:,:] = 'IN_EX_WEIGHT + IN_EX_VARIANCE*(2*rand() - 1)'
+IN_EX_SYN.w = IN_EX_WEIGHT
 
 
 IN_IN_SYN = Synapses(IN_G, IN_G,
@@ -115,7 +101,7 @@ IN_IN_SYN = Synapses(IN_G, IN_G,
 in_in_connections = [(i, j) for i in range(N_IN) for j in range(N_IN) if random() <= IN_CONNECTIVITY]
 tmp_i, tmp_j = map(list, zip(*in_in_connections))
 IN_IN_SYN.connect(i=tmp_i, j=tmp_j)
-IN_IN_SYN.w[:,:] = 'IN_IN_WEIGHT + IN_IN_VARIANCE*(2*rand() - 1)'
+IN_IN_SYN.w = IN_IN_WEIGHT
 
 # Monitoring and simulation
 M = SpikeMonitor(EX_G)
