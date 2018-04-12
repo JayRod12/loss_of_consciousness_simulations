@@ -84,8 +84,6 @@ M = SpikeMonitor(EX_G)
 duration = 5000*ms
 run(duration)
 
-spike_t, spike_idx = M.t/ms, M.i
-
 MEASURE_START = 1000
 MEASURE_DURATION = 500
 
