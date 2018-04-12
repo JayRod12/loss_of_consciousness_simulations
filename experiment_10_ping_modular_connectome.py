@@ -3,6 +3,7 @@ from brian2 import *
 from neuron_groups import *
 from echo_time import *
 
+import pickle
 import scipy.io as spio
 import matplotlib.pyplot as plt
 import power_spectral_density as psd
@@ -94,54 +95,20 @@ echo_end(echo)
 
 echo = echo_start("Running sym... ")
 M = SpikeMonitor(EX_G)
-duration = 5000*ms
+duration = 20000*ms
 run(duration)
 echo_end(echo)
 
-echo = echo_start("Post-processing and plotting... \n")
-MEASURE_START = 1000
-MEASURE_DURATION = 500
 
-print("\t{} excitatory neuron spikes in total".format(len(M.t)))
+fname = "experiment_data/exp10_{}sec.pickle".format(duration/ms/1000)
+echo = echo_start("Storing data to {}... ".format(fname))
+DATA = {
+    'X': np.array(M.t/ms),
+    'Y': np.array(M.i),
+    'duration': duration/ms
+}
 
-tt = time.time()
-X1, Y1 = [], []
-for spike_t, spike_idx in zip(M.t/ms, M.i):
-    if MEASURE_START <= spike_t < MEASURE_START + MEASURE_DURATION and \
-            spike_idx < 3*40:
-        X1.append(spike_t)
-        Y1.append(spike_idx)
-print('\tCollect relevant spikes: {}s'.format(time.time() - tt))
-
-#X, Y = M.t/ms, M.i
-X, Y = X1, Y1
-
-tt = time.time()
-dt = 10 # ms
-shift = 5 # ms
-total_steps = int(duration/(shift*ms))
-ma, time_scale = psd.moving_average(X, dt, shift, total_steps, True)
-print('\tCalculate moving average: {}s'.format(time.time() - tt))
-
-tt = time.time()
-X2, Y2 = [], []
-for ma_val, t in zip(ma, time_scale):
-    if MEASURE_START <= t[0] < MEASURE_START + MEASURE_DURATION:
-        Y2.append(ma_val)
-        X2.append(t[0])
-print('\tCollect relvant moving average data points: {}s'.format(time.time() - tt))
-
-
-plt.subplot(211)
-plt.plot(X1, Y1, '.b')
-plt.ylabel('Neuron Index')
-plt.xlabel('Simulation Time (ms)')
-
-plt.subplot(212)
-plt.plot(X2, Y2)
-plt.xlabel('Simulation Time (ms)')
-plt.ylabel('Mean firing rate')
+with open(fname, 'wb') as f:
+    pickle.dump(DATA, f)
 
 echo_end(echo)
-plt.show()
-    
