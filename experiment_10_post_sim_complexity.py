@@ -57,7 +57,7 @@ echo = echo_start("Averaging firing rates of all modules... \n")
 
 firing_rate = np.array([0.0 for _ in range((end_time - start_time) / shift)])
 for mod in range(N_MOD):
-    x, _ = psd.moving_average(modules[mod], dt, shift, 1000, 20000)
+    x, _ = psd.moving_average(modules[mod], dt, shift, start_time, end_time)
     firing_rate += x
 firing_rate /= N_MOD
 
