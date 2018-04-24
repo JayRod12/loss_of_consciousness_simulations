@@ -122,7 +122,9 @@ INTER_EX_EX_SYN.connect(i=synapses_i, j=synapses_j)
 INTER_EX_EX_SYN.delay = \
         delay_matrix[np.array(synapses_i/N_EX_MOD), np.array(synapses_j/N_EX_MOD)] * ms
 
-INTER_EX_EX_SYN.w = CIJ[synapses_i/N_EX_MOD, synapses_j/N_EX_MOD] * mV
+SCALING_FACTOR_INTER_EX_EX = 10
+INTER_EX_EX_SYN.w = CIJ[synapses_i/N_EX_MOD, synapses_j/N_EX_MOD] * \
+                        SCALING_FACTOR_INTER_EX_EX * mV
 
 print('\tINTER_EX_EX_SYN ({:,} synapses): {}s'.format(len(INTER_EX_EX_SYN.w), time.time() - tt))
 
