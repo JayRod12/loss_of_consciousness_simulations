@@ -84,12 +84,12 @@ M = SpikeMonitor(EX_G)
 duration = 5000*ms
 run(duration)
 
-MEASURE_START = 1000
-MEASURE_DURATION = 500
+t_start = 1000
+t_end = t_start + 500
 
 X1, Y1 = [], []
 for spike_t, spike_idx in zip(M.t/ms, M.i):
-    if MEASURE_START <= spike_t < MEASURE_START + MEASURE_DURATION:
+    if t_start <= spike_t < t_end:
         X1.append(spike_t)
         Y1.append(spike_idx)
 
@@ -98,14 +98,9 @@ X, Y = M.t/ms, M.i
 dt = 10 # ms
 shift = 5 # ms
 total_steps = int(duration/(shift*ms))
-ma, time_scale = psd.moving_average(X, dt, shift, total_steps, True)
+ma, time_scale = psd.moving_average(X, dt, shift, t_start, t_end)
 
-X2, Y2 = [], []
-for ma_val, t in zip(ma, time_scale):
-    if MEASURE_START <= t[0] < MEASURE_START + MEASURE_DURATION:
-        Y2.append(ma_val)
-        X2.append(t[0])
-
+X2, Y2 = time_scale, ma
 
 plt.subplot(211)
 plt.plot(X1, Y1, '.b')
