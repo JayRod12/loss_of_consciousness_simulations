@@ -53,26 +53,22 @@ echo_end(echo)
 dt = 75 # ms
 shift = 10 # ms
 
-echo = echo_start("Averaging firing rates of all modules... \n")
+echo = echo_start("Calculating Lempel Ziv Complexity of firing rates... ")
 
-firing_rate = np.array([0.0 for _ in range((end_time - start_time) / shift)])
-for mod in range(N_MOD):
+lz_comp = np.zeros(N_MOD)
+for mod in tqdm(range(N_MOD)):
     x, _ = psd.moving_average(modules[mod], dt, shift, start_time, end_time)
-    firing_rate += x
-firing_rate /= N_MOD
-
-mean_firing_rate = np.average(firing_rate)
-binarized_firing_rate = [int(x >= mean_firing_rate) for x in firing_rate]
+    binx = (x > x.mean()).astype(int)
+    lz_comp[mod] = LZ76(binx)
 
 echo_end(echo)
 
-print("Binarized data: {} bits".format(len(binarized_firing_rate)))
 
-echo = echo_start("Calculating Lempel Ziv Complexity of binarized data... ")
-LZComplexity = LZ76(np.array(binarized_firing_rate))
-echo_end(echo)
-
-print("Lempel Ziv Complexity: {}".format(LZComplexity))
+n_steps = float(end_time - start_time) / shift
+plt.hist(lz_comp*np.log(n_steps)/n_steps)
+plt.xlabel('Normalized LZ complexity')
+plt.ylabel('Module counts')
+plt.show()
 
 
 
