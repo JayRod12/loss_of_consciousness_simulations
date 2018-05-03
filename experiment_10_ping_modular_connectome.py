@@ -134,6 +134,7 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
 
     echo = echo_start("Running sym... ")
     M = SpikeMonitor(EX_G)
+    M_v = StateMonitor(EX_G, 'v', record=range(10))
     run(duration*ms)
     echo_end(echo)
 
@@ -171,16 +172,28 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
     echo_end(echo)
 
     n_steps = float(end_time - start_time) / shift
+    plt.figure()
     plt.hist(lz_comp*np.log(n_steps)/n_steps)
     plt.xlabel('Normalized LZ complexity')
     plt.ylabel('Module counts')
     plt.savefig('lz_complexity_{}s_{}_{}.png'.format(int(duration/1000), connectivity, scaling_factor))
 
+    t, v = M_v.t/ms, M_v.v[1]
+    mask = np.logical_and(t >= 1000, t < 1050)
+    t, v = t[mask], v[mask]
+
+    plt.figure()
+    plt.plot(t, v)
+    plt.xlabel('Simulation Time (s)')
+    plt.ylabel('Neuron 1 voltage')
+    plt.savefig('lz_complexity_{}s_{}_{}_neuron_voltage.png'.format(int(duration/1000), connectivity, scaling_factor))
+
     DATA = {
         'X': X,
         'Y': Y,
         'duration': duration,
-        'N_MOD': N_MOD
+        'N_MOD': N_MOD,
+        'M_v': M_v
     }
     if save_output:
         fname = "experiment_data/exp10_{}sec.pickle".format(int(duration/1000))
