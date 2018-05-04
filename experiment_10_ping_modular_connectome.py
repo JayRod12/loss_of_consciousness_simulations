@@ -4,6 +4,7 @@ from neuron_groups import *
 from echo_time import *
 from lz76 import LZ76
 from tqdm import tqdm
+from multiprocessing import Pool
 
 import pickle
 import argparse
@@ -12,7 +13,7 @@ import matplotlib.pyplot as plt
 import power_spectral_density as psd
 
 
-def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=False, save_output=False):
+def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=False, save_output=False, verbose=False):
 
     CIJ  = spio.loadmat('data/Conectoma.mat')['CIJ_fbden_average']
     XYZ = spio.loadmat('data/coords_sporns_2mm.mat')['coords_new']
@@ -66,7 +67,8 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
         on_pre='v += w',
     )
 
-    echo = echo_start("Setting up synapses... \n")
+    if verbose:
+        echo = echo_start("Setting up synapses... \n")
 
     tt = time.time()
     EX_EX_SYN.connect(
@@ -74,21 +76,24 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
         p=EX_CONNECTIVITY
     )
     EX_EX_SYN.w = EX_EX_WEIGHT
-    print('\tEX_EX_SYN ({:,} synapses): {}s'.format(len(EX_EX_SYN.w), time.time() - tt))
+    if verbose:
+        print('\tEX_EX_SYN ({:,} synapses): {}s'.format(len(EX_EX_SYN.w), time.time() - tt))
 
     tt = time.time()
     EX_IN_SYN.connect(
         condition='j == int(i/4)'
     )
     EX_IN_SYN.w = EX_IN_WEIGHT
-    print('\tEX_IN_SYN ({:,} synapses): {}s'.format(len(EX_IN_SYN.w), time.time() - tt))
+    if verbose:
+        print('\tEX_IN_SYN ({:,} synapses): {}s'.format(len(EX_IN_SYN.w), time.time() - tt))
 
     tt = time.time()
     IN_EX_SYN.connect(
         condition='int(i/10) == int(j/40)'
     )
     IN_EX_SYN.w = IN_EX_WEIGHT
-    print('\tIN_EX_SYN ({:,} synapses): {}s'.format(len(IN_EX_SYN.w), time.time() - tt))
+    if verbose:
+        print('\tIN_EX_SYN ({:,} synapses): {}s'.format(len(IN_EX_SYN.w), time.time() - tt))
 
     tt = time.time()
     IN_IN_SYN.connect(
@@ -96,7 +101,8 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
         p=IN_CONNECTIVITY
     )
     IN_IN_SYN.w = IN_IN_WEIGHT
-    print('\tIN_IN_SYN ({:,} synapses): {}s'.format(len(IN_IN_SYN.w), time.time() - tt))
+    if verbose:
+        print('\tIN_IN_SYN ({:,} synapses): {}s'.format(len(IN_IN_SYN.w), time.time() - tt))
 
     # Synapses between modules (only excitatory-excitatory connections will be
     # created)
@@ -127,16 +133,17 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
 
     INTER_EX_EX_SYN.w = CIJ[synapses_i/N_EX_MOD, synapses_j/N_EX_MOD] * \
                             scaling_factor * mV
+    if verbose:
+        print('\tINTER_EX_EX_SYN ({:,} synapses): {}s'.format(len(INTER_EX_EX_SYN.w), time.time() - tt))
+        echo_end(echo)
+        echo = echo_start("Running sym... ")
 
-    print('\tINTER_EX_EX_SYN ({:,} synapses): {}s'.format(len(INTER_EX_EX_SYN.w), time.time() - tt))
-
-    echo_end(echo)
-
-    echo = echo_start("Running sym... ")
     M = SpikeMonitor(EX_G)
     M_v = StateMonitor(EX_G, 'v', record=range(10))
     run(duration*ms)
-    echo_end(echo)
+
+    if verbose:
+        echo_end(echo)
 
     # Complexity measures
     X = M.t/ms
@@ -144,49 +151,61 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
     start_time = 1000
     end_time = duration
 
-    echo = echo_start("Removing first 1000ms of simulation... ")
-    index = 0
-    while X[index] < start_time:
-        index += 1
-    X = X[index:]
-    Y = Y[index:]
-    echo_end(echo)
+    if verbose:
+        echo = echo_start("Selecting spikes between {}ms and {}ms of simulation... "
+            .format(start_time, end_time))
+    mask = np.logical_and(X >= 1000, X < end_time)
+    X = X[mask]
+    Y = Y[mask]
+    if verbose:
+        echo_end(echo)
+        echo = echo_start("Separating list of spikes into separate lists for each module... ")
 
-    echo = echo_start("Separating list of spikes into separate lists for each module... ")
     modules = [[] for _ in range(N_MOD)]
     for spike_t, spike_idx in zip(X, Y):
         modules[spike_idx // N_EX_MOD].append(spike_t)
-    echo_end(echo)
+
+    if verbose:
+        echo_end(echo)
 
     dt = 75 # ms
     shift = 10 # ms
 
-    echo = echo_start("Calculating Lempel Ziv Complexity of firing rates... ")
+    if verbose:
+        echo = echo_start("Calculating Lempel Ziv Complexity of firing rates... ")
 
     lz_comp = np.zeros(N_MOD)
-    for mod in tqdm(range(N_MOD)):
+    for mod in range(N_MOD):
         x, _ = psd.moving_average(modules[mod], dt, shift, start_time, end_time)
         binx = (x > x.mean()).astype(int)
         lz_comp[mod] = LZ76(binx)
 
-    echo_end(echo)
+    if verbose:
+        echo_end(echo)
 
     n_steps = float(end_time - start_time) / shift
+
+    params = (n_mod, duration // 1000, connectivity, scaling_factor, int(log_scaling))
     plt.figure()
     plt.hist(lz_comp*np.log(n_steps)/n_steps)
     plt.xlabel('Normalized LZ complexity')
     plt.ylabel('Module counts')
-    plt.savefig('lz_complexity_{}s_{}_{}.png'.format(int(duration/1000), connectivity, scaling_factor))
+    plt.savefig('figures/sim10/sim_10_sweep_lz_complexity_N{}_{}s_{}_{}_{}.png'.format(*params))
+
+    plt.figure()
+    mask = np.logical_and.reduce((X >= 3000, X < 3500, Y < 150))
+    plt.plot(X[mask], Y[mask], '.')
+    plt.savefig('figures/sim10/sim_10_sweep_raster_N{}_{}s_{}_{}_{}.png'.format(*params))
 
     t, v = M_v.t/ms, M_v.v[1]
-    mask = np.logical_and(t >= 1000, t < 1050)
+    mask = np.logical_and(t >= 1000, t < 1100)
     t, v = t[mask], v[mask]
 
     plt.figure()
     plt.plot(t, v)
     plt.xlabel('Simulation Time (s)')
     plt.ylabel('Neuron 1 voltage')
-    plt.savefig('lz_complexity_{}s_{}_{}_neuron_voltage.png'.format(int(duration/1000), connectivity, scaling_factor))
+    plt.savefig('figures/sim10/sim_10_sweep_neuron_voltage_N{}_{}s_{}_{}_{}.png'.format(*params))
 
     DATA = {
         'X': X,
@@ -197,46 +216,69 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
     }
     if save_output:
         fname = "experiment_data/exp10_{}sec.pickle".format(int(duration/1000))
-        echo = echo_start("Storing data to {}... ".format(fname))
+        if verbose:
+            echo = echo_start("Storing data to {}... ".format(fname))
         with open(fname, 'wb') as f:
             pickle.dump(DATA, f)
 
-        echo_end(echo)
+        if verbose:
+            echo_end(echo)
     return DATA
 
 
+def mapped_function(tup):
+    N, c, w  = tup
+    run_experiment(N, duration, c, w)
 
 if __name__ == '__main__':
 
     # Arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument('--duration', help='duration of the simulation in milliseconds', type=int)
-    parser.add_argument('--conn', help='inter-modular network connectivity', type=float)
-    parser.add_argument('--scaling_factor', help='inter-modular weight scaling factor', type=float)
+    parser.add_argument('-N', '--modules', help='number of modules to simulate', type=int)
+    parser.add_argument('-t', '--duration', help='duration of the simulation in milliseconds', type=int)
+    parser.add_argument('-c', '--conn', help='inter-modular network connectivity', type=float)
+    parser.add_argument('-w', '--scaling_factor', help='inter-modular weight scaling factor', type=float)
     parser.add_argument('--log_scaling', help='use logarithmic inter-modular weight scaling', action='store_true')
+    parser.add_argument('-v', '--verbose', help='use logarithmic inter-modular weight scaling', action='store_true')
+    parser.add_argument('--sweep', help='Do a parameter sweep, ignores all other arguments', action='store_true')
     args = parser.parse_args()
 
-    # Parameters to regulate
-    if args.duration:
-        duration = float(args.duration)
+    if not args.sweep:
+        if args.modules:
+            modules = args.modules
+        else:
+            modules = 998
+
+        if args.duration:
+            duration = float(args.duration)
+        else:
+            duration = 5000 # ms
+
+        if args.conn:
+            connectivity = float(args.conn)
+        else:
+            connectivity = 0.1
+
+        if args.scaling_factor:
+            scaling_factor = float(args.scaling_factor)
+        else:
+            scaling_factor = 10
+
+        # Data & Parameters
+        save_output_to_file = False
+
+        data = run_experiment(modules, duration, connectivity, scaling_factor,
+                args.log_scaling, save_output_to_file, args.verbose)
     else:
-        duration = 5000 # ms
+        duration = 5000
+        p = Pool(5)
 
-    if args.conn:
-        connectivity = float(args.conn)
-    else:
-        connectivity = 0.1
-
-    if args.scaling_factor:
-        scaling_factor = float(args.scaling_factor)
-    else:
-        scaling_factor = 10
-
-    log_scaling = args.log_scaling
-
-    # Data & Parameters
-    save_output_to_file = False
-
-    run_experiment(100, duration, connectivity, scaling_factor, log_scaling, save_output_to_file)
+        params = [
+            (N, c, w)
+            for N in np.logspace(2, 3, 2).astype(int)
+            for w in np.logspace(0, 2, 6)
+            for c in np.linspace(0.01, 0.1, 2)
+        ]
+        p.map(mapped_function, params)
 
 
