@@ -1,19 +1,22 @@
 
 from brian2 import *
-from neuron_groups import *
-from echo_time import *
 from lz76 import LZ76
 from tqdm import tqdm
+from echo_time import *
+from neuron_groups import *
+from operator import itemgetter
 from multiprocessing import Pool
 
 import pickle
 import argparse
+import pandas as pd
 import scipy.io as spio
 import matplotlib.pyplot as plt
 import power_spectral_density as psd
 
 
 def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=False, save_output=False, verbose=False):
+    seed(1357)
 
     CIJ  = spio.loadmat('data/Conectoma.mat')['CIJ_fbden_average']
     XYZ = spio.loadmat('data/coords_sporns_2mm.mat')['coords_new']
@@ -131,48 +134,68 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
     INTER_EX_EX_SYN.delay = \
             delay_matrix[np.array(synapses_i/N_EX_MOD), np.array(synapses_j/N_EX_MOD)] * ms
 
-    INTER_EX_EX_SYN.w = CIJ[synapses_i/N_EX_MOD, synapses_j/N_EX_MOD] * \
-                            scaling_factor * mV
+    if log_scaling:
+        INTER_EX_EX_SYN.w = np.log(CIJ[synapses_i/N_EX_MOD, synapses_j/N_EX_MOD]) * \
+                                scaling_factor * mV
+    else:
+        INTER_EX_EX_SYN.w = CIJ[synapses_i/N_EX_MOD, synapses_j/N_EX_MOD] * \
+                                scaling_factor * mV
+
     if verbose:
         print('\tINTER_EX_EX_SYN ({:,} synapses): {}s'.format(len(INTER_EX_EX_SYN.w), time.time() - tt))
         echo_end(echo)
         echo = echo_start("Running sym... ")
 
-    M = SpikeMonitor(EX_G)
-    M_v = StateMonitor(EX_G, 'v', record=range(10))
+    recorded_neurons = [0, 1, 50, 90]
+    M_EX = SpikeMonitor(EX_G)
+    M_IN = SpikeMonitor(IN_G)
+    M_V = StateMonitor(EX_G, 'v', record=recorded_neurons)
     run(duration*ms)
 
     if verbose:
         echo_end(echo)
+        echo = echo_start("Processing spike data...")
 
-    # Complexity measures
-    X = M.t/ms
-    Y = M.i
+    # Problem: inhibitory indexes overlap with excitatory indexes
+    #X = np.concatenate(M_EX.t/ms, M_IN.t/ms)
+    #Y = np.concatenate(M_EX.i, M_IN.i)
+    #perm_sort = X.argsort()
+    #X, Y = X[perm_sort], Y[perm_sort]
+    X, Y = M_EX.t/ms, M_EX.i
+
     start_time = 1000
     end_time = duration
 
     if verbose:
+        echo_end(echo)
         echo = echo_start("Selecting spikes between {}ms and {}ms of simulation... "
             .format(start_time, end_time))
+
+    # Discard transient
     mask = np.logical_and(X >= 1000, X < end_time)
-    X = X[mask]
-    Y = Y[mask]
+    X, Y = X[mask], Y[mask]
+
     if verbose:
         echo_end(echo)
         echo = echo_start("Separating list of spikes into separate lists for each module... ")
 
+
+    #modules = [[] for _ in range(N_MOD)]
+    #for spike_t, spike_idx in zip(X, Y):
+    #    modules[spike_idx // N_EX_MOD].append(spike_t)
+
+    X_series, Y_series = pd.Series(X), pd.Series(Y // N_EX_MOD)
+    gb = X_series.groupby(Y_series)
     modules = [[] for _ in range(N_MOD)]
-    for spike_t, spike_idx in zip(X, Y):
-        modules[spike_idx // N_EX_MOD].append(spike_t)
+    for mod in gb.groups:
+        modules[mod] = np.array(gb.get_group(mod))
 
     if verbose:
         echo_end(echo)
+        echo = echo_start("Calculating Lempel Ziv Complexity of firing rates... ")
 
     dt = 75 # ms
     shift = 10 # ms
-
-    if verbose:
-        echo = echo_start("Calculating Lempel Ziv Complexity of firing rates... ")
 
     lz_comp = np.zeros(N_MOD)
     for mod in range(N_MOD):
@@ -195,16 +218,23 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
     plt.figure()
     mask = np.logical_and.reduce((X >= 3000, X < 3500, Y < 150))
     plt.plot(X[mask], Y[mask], '.')
+    plt.xlabel('Simulation Time (ms)')
     plt.savefig('figures/sim10/sim_10_sweep_raster_N{}_{}s_{}_{}_{}.png'.format(*params))
 
-    t, v = M_v.t/ms, M_v.v[1]
-    mask = np.logical_and(t >= 1000, t < 1100)
-    t, v = t[mask], v[mask]
-
     plt.figure()
-    plt.plot(t, v)
-    plt.xlabel('Simulation Time (s)')
-    plt.ylabel('Neuron 1 voltage')
+    t = M_V.t/ms
+    mask = np.logical_and(t >= 1000, t < 1100)
+    t = t[mask]
+    for idx, neuron_idx in enumerate(recorded_neurons):
+        v = M_V.v[idx]
+        v = v[mask]
+
+        plt.subplot(2,2,idx+1)
+        plt.plot(t, v)
+        plt.ylabel('Neuron {} voltage'.format(neuron_idx))
+        plt.xlabel('Simulation time (ms)')
+
+    plt.tight_layout()
     plt.savefig('figures/sim10/sim_10_sweep_neuron_voltage_N{}_{}s_{}_{}_{}.png'.format(*params))
 
     DATA = {
@@ -212,7 +242,11 @@ def run_experiment(n_mod, duration, connectivity, scaling_factor, log_scaling=Fa
         'Y': Y,
         'duration': duration,
         'N_MOD': N_MOD,
-        'M_v': M_v
+        'M_V': M_V,
+        'M_EX': M_EX,
+        'M_IN': M_IN,
+        'lz_comp': lz_comp,
+        'n_steps': n_steps,
     }
     if save_output:
         fname = "experiment_data/exp10_{}sec.pickle".format(int(duration/1000))

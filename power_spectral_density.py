@@ -17,8 +17,8 @@ import numpy as np
 #       - ts: [float] - Time steps representing the start time at which every output
 #                       measurement is recorded.
 def moving_average(a, dt, shift, start, end):
-    if not a:
-        return np.array([])
+    if len(a) == 0:
+        return np.array([]), None
 
     # time steps
     ts = np.linspace(start, end, (end - start) / shift, endpoint=False)
