@@ -127,18 +127,18 @@ PICKLE_OUT_DATA = [
     list(M_EX.t/ms),
     list(M_IN.t/ms),
 ]
-fname = 'experiment_data/exp7conn_{}_{}-{}-{}-{}.pickle'.format(
-    int(duration/ms),
-    EX_EX_SCALING,
-    EX_IN_SCALING,
-    IN_EX_SCALING,
-    IN_IN_SCALING,
- )
-
-
-with open(fname, 'wb') as f:
-    print('Writing output data to \'{}\''.format(fname))
-    pickle.dump(PICKLE_OUT_DATA, f)
+#fname = 'experiment_data/exp7conn_{}_{}-{}-{}-{}.pickle'.format(
+#    int(duration/ms),
+#    EX_EX_SCALING,
+#    EX_IN_SCALING,
+#    IN_EX_SCALING,
+#    IN_IN_SCALING,
+# )
+#
+#
+#with open(fname, 'wb') as f:
+#    print('Writing output data to \'{}\''.format(fname))
+#    pickle.dump(PICKLE_OUT_DATA, f)
 
 
 # Discard initial transient signal
