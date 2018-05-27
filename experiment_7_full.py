@@ -96,7 +96,8 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
 
     EX_EX_SYN.connect(i=synapses_i, j=synapses_j)
     EX_EX_SYN.w = CIJ[EX_NEURONS[synapses_i], EX_NEURONS[synapses_j]] * EX_EX_SCALING * mV
-    EX_EX_SYN.delay = delay_matrix[synapses_i, synapses_j] * ms
+    print(EX_EX_SYN.w[:5])
+    EX_EX_SYN.delay[:,:] = delay_matrix[synapses_i, synapses_j] * ms
     echo_start(" ({:,} synapses)".format(len(synapses_i)))
 
     echo_end(echo)
@@ -106,18 +107,19 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     EX_IN_SYN = Synapses(EX_G, IN_G,
         model='w : volt',
         on_pre='v += w',
-        delay=1*ms
+#       delay=1*ms
     )
 #    inhibitory_shuffled = np.random.permutation(N_IN)
     synapses_i = np.arange(N_EX)
     synapses_j = np.random.permutation(N_IN)[synapses_i % N_IN]
     EX_IN_SYN.connect(i=synapses_i, j=synapses_j)
-#    EX_IN_SYN.delay = delay_matrix[synapses_i, synapses_j + N_EX] * ms
+    EX_IN_SYN.delay[:,:] = delay_matrix[synapses_i, synapses_j + N_EX] * ms
 
 #    for i in range(N_EX):
 #        EX_IN_SYN.connect(i=i, j=inhibitory_shuffled[i%N_IN])
 
-    EX_IN_SYN.w[:,:] = rand() * EX_IN_SCALING * EX_IN_MAX_WEIGHT
+    EX_IN_SYN.w[:,:] = 'rand() * EX_IN_SCALING * EX_IN_MAX_WEIGHT'
+    print(EX_IN_SYN.w[:5])
     echo_start(" ({:,} synapses)".format(len(EX_IN_SYN.w)))
 
     echo_end(echo)
@@ -126,11 +128,15 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     IN_EX_SYN = Synapses(IN_G, EX_G,
         model='w : volt',
         on_pre='v += w',
-        delay=1*ms
+ #       delay=1*ms
     )
     for in_neuron in range(N_IN):
         IN_EX_SYN.connect(i=in_neuron, j=range(N_EX))
-    IN_EX_SYN.w[:,:] = rand() * IN_EX_SCALING * IN_EX_MIN_WEIGHT
+        IN_EX_SYN.delay[in_neuron,:] = delay_matrix[in_neuron, np.arange(N_EX)] * ms
+
+    IN_EX_SYN.w[:,:] = 'rand() * IN_EX_SCALING * IN_EX_MIN_WEIGHT'
+    print(IN_EX_SYN.w[:5])
+#    IN_EX_SYN.delay[:,:]
     
     echo_start(" ({:,} synapses)".format(len(IN_EX_SYN.w)))
     echo_end(echo)
@@ -139,13 +145,15 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     IN_IN_SYN = Synapses(IN_G,
         model='w : volt',
         on_pre='v += w',
-        delay=1*ms
+#        delay=1*ms
     )
     
     for in_neuron in range(N_IN):
         IN_IN_SYN.connect(i=in_neuron, j=np.arange(N_IN))
+        IN_IN_SYN.delay[in_neuron,:] = delay_matrix[in_neuron, np.arange(N_IN)] * ms
     
-    IN_IN_SYN.w[:,:] = rand() * IN_IN_SCALING * IN_IN_MIN_WEIGHT
+    IN_IN_SYN.w[:,:] = 'rand() * IN_IN_SCALING * IN_IN_MIN_WEIGHT'
+    print(IN_IN_SYN.w[:5])
     echo_start(" ({:,} synapses)".format(len(IN_IN_SYN.w)))
     
     echo_end(echo) 
