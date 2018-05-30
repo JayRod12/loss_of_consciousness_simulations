@@ -22,8 +22,8 @@ exin_conn, inex_conn, inin_conn = 0.7, 1.0, 1.0
 min_delay, max_delay = 1, 10
 min_w, max_w = 0, 15
 
-inter_connectivity = 0.0
-inter_scaling_factor = 10
+inter_connectivity = 0.1
+inter_scaling_factor = 20
 
 def run_experiment(
         n_mod=1000,
@@ -35,7 +35,6 @@ def run_experiment(
         verbose=False
     ):
 
-#    seed(1978331)
     seed(1357)
 
     CIJ  = spio.loadmat('data/Conectoma.mat')['CIJ_fbden_average']
@@ -74,7 +73,6 @@ def run_experiment(
     ) * ms
 
     echo_end(echo2, "({:,} synapses)".format(len(EX_IN_SYN)))
-    #print(list(EX_IN_SYN.w))
 
     # Inhibitory-Excitatory synapses within modules
     IN_EX_SYN = Synapses(IN_G, EX_G,
@@ -121,48 +119,51 @@ def run_experiment(
 
     # Inter module connections (follows connectome structure)
     # Only excitatory-excitatory connections will be created
-    #INTER_EX_EX_SYN = Synapses(EX_G,
-    #    model='w: volt',
-    #    on_pre='v += w',
-    #)
+    INTER_EX_EX_SYN = Synapses(EX_G,
+        model='w: volt',
+        on_pre='v += w',
+    )
 
-    #echo2 = echo_start('\tINTER_EX_EX_SYN... ')
-    #synapses = []
-    #delay_matrix = np.zeros((n_mod, n_mod))
-    #for i in range(n_mod):
-    #    x, y, z = XYZ[i]
-    #    for j in range(n_mod):
-    #        if CIJ[i][j] > 0:
-    #            # Delay = distance / speed, speed = 2 m/s
-    #            x2, y2, z2 = XYZ[j]
-    #            delay_matrix[i][j] = math.sqrt((x-x2)**2 + (y-y2)**2 + (z-z2)**2)/2
-    #            base_i, base_j = i * n_ex_mod, j * n_ex_mod
-    #            synapses += [(base_i + ii, base_j + jj)
-    #                for ii in range(n_ex_mod)
-    #                for jj in range(n_ex_mod)
-    #                if sample() < inter_conn
-    #            ]
+    echo2 = echo_start('\tINTER_EX_EX_SYN... ')
+    synapses = []
+    delay_matrix = np.zeros((n_mod, n_mod))
+    for i in range(n_mod):
+        x, y, z = XYZ[i]
+        for j in range(n_mod):
+            if CIJ[i][j] > 0:
+                # Delay = distance / speed, speed = 2 m/s
+                x2, y2, z2 = XYZ[j]
+                delay_matrix[i][j] = math.sqrt((x-x2)**2 + (y-y2)**2 + (z-z2)**2)/2
+                base_i, base_j = i * n_ex_mod, j * n_ex_mod
+                synapses += [(base_i + ii, base_j + jj)
+                    for ii in range(n_ex_mod)
+                    for jj in range(n_ex_mod)
+                    if sample() < inter_conn
+                ]
 
-    #synapses_i, synapses_j = map(np.array, zip(*synapses))
-    #INTER_EX_EX_SYN.connect(i=synapses_i, j=synapses_j)
+    synapses_i, synapses_j = map(np.array, zip(*synapses))
+    INTER_EX_EX_SYN.connect(i=synapses_i, j=synapses_j)
 
-    #INTER_EX_EX_SYN.delay = \
-    #        delay_matrix[np.array(synapses_i/n_ex_mod), np.array(synapses_j/n_ex_mod)] * ms
+    INTER_EX_EX_SYN.delay = \
+            delay_matrix[np.array(synapses_i/n_ex_mod), np.array(synapses_j/n_ex_mod)] * ms
 
-    #if log_scaling:
-    #    INTER_EX_EX_SYN.w = np.log(CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod]) * \
-    #                            inter_scaling * mV
-    #else:
-    #    INTER_EX_EX_SYN.w = CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod] * \
-    #                            inter_scaling * mV
+    if log_scaling:
+        INTER_EX_EX_SYN.w = np.log(CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod]) * \
+                                inter_scaling * mV
+    else:
+        INTER_EX_EX_SYN.w = CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod] * \
+                                inter_scaling * mV
 
-    #echo_end(echo2, "({:,} synapses)".format(len(INTER_EX_EX_SYN)))
+    echo_end(echo2, "({:,} synapses)".format(len(INTER_EX_EX_SYN)))
     echo_end(echo, "All synapses created")
 
     echo = echo_start("Supplying Poisson input to network... ")
 
+    # Use the same number of Poisson Inputs (40) as in PING model.
+    # N = Number of poisson inputs provided to each neuron in EX_G
     POISSON_INPUT_WEIGHT=8*mV
-    PI_EX = PoissonInput(EX_G, 'v', len(EX_G), 20*Hz, weight=POISSON_INPUT_WEIGHT)
+    #PI_EX = PoissonInput(EX_G, 'v', len(EX_G), 20*Hz, weight=POISSON_INPUT_WEIGHT)
+    PI_EX = PoissonInput(EX_G, 'v', 40, 20*Hz, weight=POISSON_INPUT_WEIGHT)
 
     echo_end(echo)
 
