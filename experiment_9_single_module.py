@@ -17,7 +17,24 @@ import power_spectral_density as psd
 # Model a single Brodmann area as 50 neurons
 # Full-Ping oscillations >30 Hz
 
+#CONFIG = {
+#    'N_EX': 40,
+#    'N_IN': 10,
+#    'exin_w': (10,2),
+#    'inex_w': (10,2),
+#    'inin_w': (10,2),
+#    'exin_d': (2,1),
+#    'inex_d': (5,2),
+#    'inin_d': (5,2)
+#    'exin_conn': 0.7,
+#    'inex_conn': 0.7,
+#    'inin_conn': 0.7,
+#
+#}
+
 def run_simulation(
+        n_ex=40,
+        n_in=10,
         exin_w=(10,2),
         inex_w=(10,2),
         inin_w=(10,2),
@@ -28,8 +45,8 @@ def run_simulation(
 
     seed(1978331)
 
-    N_EX = 40
-    N_IN = 10
+    N_EX = n_ex
+    N_IN = n_in
     EX_G = ExcitatoryNeuronGroup(N_EX)
     IN_G = InhibitoryNeuronGroup(N_IN)
 
@@ -38,7 +55,7 @@ def run_simulation(
     IN_EX_CONN = 1
     IN_IN_CONN = 1
 
-    MIN_DELAY, MAX_DELAY= 1, 10
+    MIN_DELAY, MAX_DELAY= 1, 20
     MIN_W, MAX_W = 0, 15
 
     echo = echo_start("Setting up synapses:\n")
@@ -121,8 +138,8 @@ def run_simulation(
 
     RESULTS = {
         'N': N_EX + N_IN,
-        'N_EX': N_EX,
-        'N_IN': N_IN,
+        'n_ex': N_EX,
+        'n_in': N_IN,
         'X': X,
         'Y': Y,
         'X2': X_IN,

@@ -1,4 +1,3 @@
-
 from brian2 import *
 from lz76 import LZ76
 from tqdm import tqdm
@@ -125,23 +124,10 @@ def run_experiment(
     )
 
     echo2 = echo_start('\tINTER_EX_EX_SYN... ')
-    synapses = []
-    delay_matrix = np.zeros((n_mod, n_mod))
-    for i in range(n_mod):
-        x, y, z = XYZ[i]
-        for j in range(n_mod):
-            if CIJ[i][j] > 0:
-                # Delay = distance / speed, speed = 2 m/s
-                x2, y2, z2 = XYZ[j]
-                delay_matrix[i][j] = math.sqrt((x-x2)**2 + (y-y2)**2 + (z-z2)**2)/2
-                base_i, base_j = i * n_ex_mod, j * n_ex_mod
-                synapses += [(base_i + ii, base_j + jj)
-                    for ii in range(n_ex_mod)
-                    for jj in range(n_ex_mod)
-                    if sample() < inter_conn
-                ]
 
+    synapses, delay_matrix = get_connectivity(n_mod, n_ex_mod, inter_conn, XYZ, CIJ)
     synapses_i, synapses_j = map(np.array, zip(*synapses))
+
     INTER_EX_EX_SYN.connect(i=synapses_i, j=synapses_j)
 
     INTER_EX_EX_SYN.delay = \
@@ -201,6 +187,24 @@ def run_experiment(
         echo_end(echo)
     return DATA
 
+
+def get_connectivity(n_mod, n_ex_mod, inter_conn, XYZ, CIJ):
+    synapses = []
+    delay_matrix = np.zeros((n_mod, n_mod))
+    for i in range(n_mod):
+        x, y, z = XYZ[i]
+        for j in range(n_mod):
+            if CIJ[i][j] > 0:
+                # Delay = distance / speed, speed = 2 m/s
+                x2, y2, z2 = XYZ[j]
+                delay_matrix[i][j] = math.sqrt((x-x2)**2 + (y-y2)**2 + (z-z2)**2)/2
+                base_i, base_j = i * n_ex_mod, j * n_ex_mod
+                synapses += [(base_i + ii, base_j + jj)
+                    for ii in range(n_ex_mod)
+                    for jj in range(n_ex_mod)
+                    if sample() < inter_conn
+                ]
+    return synapses, delay_matrix
 
 def mapped_function(tup):
     n, c, w  = tup
