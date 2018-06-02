@@ -17,9 +17,12 @@ import power_spectral_density as psd
 n_ex_mod, n_in_mod = 40, 10
 exin_w, inex_w, inin_w = (10,2), (10,2), (10,2)
 exin_d, inex_d, inin_d = (2,1), (5,2), (5,2)
+
 exin_conn, inex_conn, inin_conn = 0.7, 1.0, 1.0
-min_delay, max_delay = 1, 10
+min_d, max_d = 1, 20
 min_w, max_w = 0, 15
+min_sigma_w, max_sigma_w = 1, 3
+min_sigma_d, max_sigma_d = 1, 3
 
 inter_connectivity = 0.1
 inter_scaling_factor = 20
@@ -52,25 +55,21 @@ def run_experiment(
     # Define all synapse objects
     echo = echo_start("Setting up synapses... \n")
 
+    mu_w, sigma_w, mu_d, sigma_d = get_synapse_weights_and_delays(n_mod)
+
     # Excitatory-Inhibitory synapses within modules
     EX_IN_SYN = Synapses(EX_G, IN_G,
         model='w: volt',
         on_pre='v += w',
     )
     echo2 = echo_start('\tEX_IN_SYN... ')
-    EX_IN_SYN.connect(
-        condition='int(i/n_ex_mod) == int(j/n_in_mod)',
-        p=exin_conn
+    syn, weights, delays = get_synapses(
+        n_mod, n_ex_mod, n_in_mod, mu_w, sigma_w, mu_d, sigma_d, exin_conn
     )
-    EX_IN_SYN.w[:,:] = np.clip(
-        np.random.normal(exin_w[0], exin_w[1], size=len(EX_IN_SYN)),
-        min_w, max_w
-    ) * mV
-    EX_IN_SYN.delay[:,:] = np.clip(
-        np.random.normal(exin_d[0], exin_d[1], size=len(EX_IN_SYN)),
-        min_delay, max_delay
-    ) * ms
-
+    s_i, s_j = zip(*syn)
+    EX_IN_SYN.connect(i=s_i, j=s_j)
+    EX_IN_SYN.w = weights
+    EX_IN_SYN.delay = delays
     echo_end(echo2, "({:,} synapses)".format(len(EX_IN_SYN)))
 
     # Inhibitory-Excitatory synapses within modules
@@ -79,19 +78,13 @@ def run_experiment(
         on_pre='v -= w',
     )
     echo2 = echo_start('\tIN_EX_SYN... ')
-    IN_EX_SYN.connect(
-        condition='int(i/n_in_mod) == int(j/n_ex_mod)',
-        p=inex_conn
+    syn, weights, delays = get_synapses(
+        n_mod, n_in_mod, n_ex_mod, mu_w, sigma_w, mu_d, sigma_d, inex_conn
     )
-    IN_EX_SYN.w[:,:] = np.clip(
-        np.random.normal(inex_w[0], inex_w[1], size=len(IN_EX_SYN)),
-        min_w, max_w
-    ) * mV
-
-    IN_EX_SYN.delay[:,:] = np.clip(
-        np.random.normal(inex_d[0], inex_d[1], size=len(IN_EX_SYN)),
-        min_delay, max_delay
-    ) * ms
+    s_i, s_j = zip(*syn)
+    IN_EX_SYN.connect(i=s_i, j=s_j)
+    IN_EX_SYN.w = weights
+    IN_EX_SYN.delay = delays
     echo_end(echo2, "({:,} synapses)".format(len(IN_EX_SYN)))
 
     # Inhibitory-Inhibitory synapses within modules
@@ -100,19 +93,14 @@ def run_experiment(
         on_pre='v -= w',
     )
     echo2 = echo_start('\tIN_IN_SYN... ')
-    IN_IN_SYN.connect(
-        condition='int(i/n_in_mod) == int(j/n_in_mod)',
-        p=inin_conn
+    syn, weights, delays = get_synapses(
+        n_mod, n_in_mod, n_in_mod, mu_w, sigma_w, mu_d, sigma_d, inin_conn
     )
-    IN_IN_SYN.w[:,:] = np.clip(
-        np.random.normal(inin_w[0], inin_w[1], size=len(IN_IN_SYN)),
-        min_w, max_w
-    ) * mV
+    s_i, s_j = zip(*syn)
+    IN_IN_SYN.connect(i=s_i, j=s_j)
+    IN_IN_SYN.w = weights
+    IN_IN_SYN.delay = delays
 
-    IN_IN_SYN.delay[:,:] = np.clip(
-        np.random.normal(inin_d[0], inin_d[1], size=len(IN_IN_SYN)),
-        min_delay, max_delay
-    ) * ms
     echo_end(echo2, "({:,} synapses)".format(len(IN_IN_SYN)))
 
 
@@ -122,7 +110,6 @@ def run_experiment(
         model='w: volt',
         on_pre='v += w',
     )
-
     echo2 = echo_start('\tINTER_EX_EX_SYN... ')
 
     synapses, delay_matrix = get_connectivity(n_mod, n_ex_mod, inter_conn, XYZ, CIJ)
@@ -177,6 +164,8 @@ def run_experiment(
         'n_in': n_in,
         'n_ex_mod': n_ex_mod,
         'n_in_mod': n_in_mod,
+        'mu_w': mu_w,
+        'mu_d': mu_d,
     }
     if save_output:
         fname = "experiment_data/exp10_{}sec.pickle".format(int(duration/1000))
@@ -186,6 +175,44 @@ def run_experiment(
 
         echo_end(echo)
     return DATA
+
+def get_synapse_weights_and_delays(n_mod):
+    mu_w = (max_w - min_w) * np.random.random_sample((n_mod,)) + min_w
+    sigma_w = (max_sigma_w - min_sigma_w) * np.random.random_sample((n_mod,)) + min_sigma_w
+    mu_d = (max_d - min_d) * np.random.random_sample((n_mod,)) + min_d
+    sigma_d = (max_sigma_d - min_sigma_d) * np.random.random_sample((n_mod,)) + min_sigma_d
+    return mu_w, sigma_w, mu_d, sigma_d
+
+
+def get_synapses(n_mod, n1, n2, mu_w, sigma_w, mu_d, sigma_d, conn):
+    synapses = [
+        [
+            (mod_i * n1 + i,  mod_i * n2 + j)
+            for i in range(n1)
+            for j in range(n2)
+            if sample() < conn
+        ]
+        for mod_i in range(n_mod)
+    ]
+
+    # Delays and weights are clipped to a minimum and maximum (because the normal
+    # distribution would allow weights and delays to become negative otherwise.
+    weights = np.concatenate([
+        np.clip(
+            np.random.normal(mu_w[mod_i], sigma_w[mod_i], size=len(synapses[mod_i])),
+            min_w, max_w
+        )
+        for mod_i in range(n_mod)
+    ]) * mV
+    delays = np.concatenate([
+        np.clip(
+            np.random.normal(mu_d[mod_i], sigma_d[mod_i], size=len(synapses[mod_i])),
+            min_d, max_d
+        )
+        for mod_i in range(n_mod)
+    ]) * ms
+
+    return np.concatenate(synapses), weights, delays
 
 
 def get_connectivity(n_mod, n_ex_mod, inter_conn, XYZ, CIJ):
