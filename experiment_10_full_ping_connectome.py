@@ -36,6 +36,13 @@ tms_stimulus_time = 1500 * ms
 tms_weight = 30 * mV
 tms_duration = 50
 
+# Thalamus settings
+n_ex_th = 200
+n_in_th = 50
+th_out_w = (10,2)
+th_out_d = (10,2)
+th_out_conn = 0.1
+
 
 def run_experiment(
         n_mod=1000,
@@ -44,6 +51,8 @@ def run_experiment(
         inter_scaling=inter_scaling_factor,
         save_output=False,
         with_tms=False,
+        with_thalamus=False,
+        thalamus_modulation=1.0,
         tms_time=tms_stimulus_time,
         verbose=False
     ):
@@ -54,12 +63,14 @@ def run_experiment(
     XYZ = spio.loadmat('data/coords_sporns_2mm.mat')['coords_new']
     n_mod = min(n_mod, len(XYZ)) # Number of modules
 
-    # Setup
     n_ex = n_ex_mod * n_mod
     n_in = n_in_mod * n_mod
 
     EX_G = ExcitatoryNeuronGroup(n_ex)
     IN_G = InhibitoryNeuronGroup(n_in)
+    if with_thalamus:
+        THEX_G = ExcitatoryNeuronGroup(n_ex_th)
+        THIN_G = InhibitoryNeuronGroup(n_in_th)
 
     # Define all synapse objects
     echo = echo_start("Setting up synapses... \n")
@@ -133,8 +144,91 @@ def run_experiment(
                             inter_scaling * mV
 
     echo_end(echo2, "({:,} synapses)".format(len(INTER_EX_EX_SYN)))
+
+    if with_thalamus:
+        TH_OUT_SYN = Synapses(
+            THEX_G, EX_G,
+            model='w : volt',
+            on_pre='v += w',
+        )
+        echo2 = echo_start('\tTH_OUT_SYN... ')
+        TH_OUT_SYN.connect(p=th_out_conn)
+        TH_OUT_SYN.w[:,:] = np.clip(
+            np.random.normal(th_out_w[0], th_out_w[1], size=len(TH_OUT_SYN)),
+            min_w, max_w
+        ) * thalamus_modulation * mV
+        TH_OUT_SYN.delay[:,:] = np.clip(
+            np.random.normal(th_out_d[0], th_out_d[1], size=len(TH_OUT_SYN)),
+            min_d, max_d
+        ) * ms
+        echo_end(echo2, "({:,} synapses)".format(len(TH_OUT_SYN)))
+
+
+        TH_EX_IN_SYN = Synapses(THEX_G, THIN_G,
+            model='w: volt',
+            on_pre='v += w',
+        )
+        echo2 = echo_start('\tTH_EX_IN_SYN... ')
+        TH_EX_IN_SYN.connect(
+            condition='int(i/n_ex_th) == int(j/n_in_th)',
+            p=exin_conn
+        )
+        TH_EX_IN_SYN.w[:,:] = np.clip(
+            np.random.normal(exin_w[0], exin_w[1], size=len(TH_EX_IN_SYN)),
+            min_w, max_w
+        ) * mV
+        TH_EX_IN_SYN.delay[:,:] = np.clip(
+            np.random.normal(exin_d[0], exin_d[1], size=len(TH_EX_IN_SYN)),
+            min_d, max_d
+        ) * ms
+
+        echo_end(echo2, "({:,} synapses)".format(len(TH_EX_IN_SYN)))
+
+        # Inhibitory-Excitatory synapses within modules
+        TH_IN_EX_SYN = Synapses(THIN_G, THEX_G,
+            model='w: volt',
+            on_pre='v -= w',
+        )
+        echo2 = echo_start('\tIN_EX_SYN... ')
+        TH_IN_EX_SYN.connect(
+            condition='int(i/n_in_th) == int(j/n_ex_th)',
+            p=inex_conn
+        )
+        TH_IN_EX_SYN.w[:,:] = np.clip(
+            np.random.normal(inex_w[0], inex_w[1], size=len(TH_IN_EX_SYN)),
+            min_w, max_w
+        ) * mV
+
+        TH_IN_EX_SYN.delay[:,:] = np.clip(
+            np.random.normal(inex_d[0], inex_d[1], size=len(TH_IN_EX_SYN)),
+            min_d, max_d
+        ) * ms
+        echo_end(echo2, "({:,} synapses)".format(len(TH_IN_EX_SYN)))
+
+        # Inhibitory-Inhibitory synapses within modules
+        TH_IN_IN_SYN = Synapses(THIN_G,
+            model='w: volt',
+            on_pre='v -= w',
+        )
+        echo2 = echo_start('\tIN_IN_SYN... ')
+        TH_IN_IN_SYN.connect(
+            condition='int(i/n_in_th) == int(j/n_in_th)',
+            p=inin_conn
+        )
+        TH_IN_IN_SYN.w[:,:] = np.clip(
+            np.random.normal(inin_w[0], inin_w[1], size=len(TH_IN_IN_SYN)),
+            min_w, max_w
+        ) * mV
+
+        TH_IN_IN_SYN.delay[:,:] = np.clip(
+            np.random.normal(inin_d[0], inin_d[1], size=len(TH_IN_IN_SYN)),
+            min_d, max_d
+        ) * ms
+        echo_end(echo2, "({:,} synapses)".format(len(TH_IN_IN_SYN)))
+
+
     if with_tms:
-        echo2 = echo_start("\tTMS stimulus and synapses... ")
+        echo2 = echo_start("\tTMS Spike Generator... ")
         # TMS stimulus at 1500ms
         TMS_G = SpikeGeneratorGroup(
             n_tms,
@@ -150,13 +244,14 @@ def run_experiment(
                 for k in range(tms_duration)
             ]) * ms
         )
+        echo_end(echo2)
         # One-to-one mapping from tms_g to excitatory cells
         TMS_EX_SYN = Synapses(TMS_G, EX_G,
             model='w: volt',
             on_pre='v += w',
             delay=1*ms
         )
-
+        echo2 = echo_start("\tTMS_EX_SYN... ")
         TMS_EX_SYN.connect(
             # n_ex_mod * # of regions one-to-one synapses to the excitatory neurons
             # of each region.
@@ -164,17 +259,20 @@ def run_experiment(
             j=np.concatenate([np.arange(n_ex_mod) + reg * n_ex_mod for reg in tms_regions])
         )
         TMS_EX_SYN.w = tms_weight
+        echo_end(echo2, "({:,} synapses)".format(len(TMS_EX_SYN)))
+
         TMS_IN_SYN = Synapses(TMS_G, IN_G,
             model='w: volt',
             on_pre='v -= w',
             delay=1*ms
         )
+        echo2 = echo_start("\tTMS_IN_SYN... ")
         TMS_IN_SYN.connect(
             i=np.arange(n_in_mod * len(tms_regions)) + n_ex_mod * len(tms_regions),
             j=np.concatenate([np.arange(n_in_mod) + reg * n_in_mod for reg in tms_regions])
         )
         TMS_IN_SYN.w = tms_weight
-        echo_end(echo2, "({:,} synapses)".format(len(TMS_EX_SYN) + len(TMS_IN_SYN)))
+        echo_end(echo2, "({:,} synapses)".format(len(TMS_IN_SYN)))
 
     echo_end(echo, "All synapses created")
 
@@ -184,6 +282,8 @@ def run_experiment(
     # N = Number of poisson inputs provided to each neuron in EX_G
     POISSON_INPUT_WEIGHT=8*mV
     PI_EX = PoissonInput(EX_G, 'v', n_ex_mod, 20*Hz, weight=POISSON_INPUT_WEIGHT)
+    if with_thalamus:
+        PI_THEX = PoissonInput(THEX_G, 'v', len(THEX_G), 4.375*Hz, weight=POISSON_INPUT_WEIGHT)
 
     echo_end(echo)
 
