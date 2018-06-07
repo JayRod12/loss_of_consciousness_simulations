@@ -27,12 +27,24 @@ min_sigma_d, max_sigma_d = 1, 3
 inter_connectivity = 0.1
 inter_scaling_factor = 20
 
+# TMS settings
+tms_regions = [90]
+#tms_regions = [90, 94, 95, 84]
+#n_tms = n_ex_mod + n_in_mod * len(tms_regions)
+n_tms = (n_ex_mod + n_in_mod) * len(tms_regions)
+tms_stimulus_time = 1500 * ms
+tms_weight = 30 * mV
+tms_duration = 50
+
+
 def run_experiment(
         n_mod=1000,
         duration=5000,
         inter_conn=inter_connectivity,
         inter_scaling=inter_scaling_factor,
         save_output=False,
+        with_tms=False,
+        tms_time=tms_stimulus_time,
         verbose=False
     ):
 
@@ -121,6 +133,49 @@ def run_experiment(
                             inter_scaling * mV
 
     echo_end(echo2, "({:,} synapses)".format(len(INTER_EX_EX_SYN)))
+    if with_tms:
+        echo2 = echo_start("\tTMS stimulus and synapses... ")
+        # TMS stimulus at 1500ms
+        TMS_G = SpikeGeneratorGroup(
+            n_tms,
+            # Neuron indexes that spike [0, ..., N, 0, ..., N, ...]
+            # Repeated as many ms as the tms stimulus lasts
+            np.concatenate([
+                np.arange(n_tms)
+                for _ in range(tms_duration)
+            ]),
+            # Spike times associated to the neuron indexes above
+            np.concatenate([
+                [tms_time / ms + k for _ in range(n_tms)]
+                for k in range(tms_duration)
+            ]) * ms
+        )
+        # One-to-one mapping from tms_g to excitatory cells
+        TMS_EX_SYN = Synapses(TMS_G, EX_G,
+            model='w: volt',
+            on_pre='v += w',
+            delay=1*ms
+        )
+
+        TMS_EX_SYN.connect(
+            # n_ex_mod * # of regions one-to-one synapses to the excitatory neurons
+            # of each region.
+            i=np.arange(n_ex_mod * len(tms_regions)),
+            j=np.concatenate([np.arange(n_ex_mod) + reg * n_ex_mod for reg in tms_regions])
+        )
+        TMS_EX_SYN.w = tms_weight
+        TMS_IN_SYN = Synapses(TMS_G, IN_G,
+            model='w: volt',
+            on_pre='v -= w',
+            delay=1*ms
+        )
+        TMS_IN_SYN.connect(
+            i=np.arange(n_in_mod * len(tms_regions)) + n_ex_mod * len(tms_regions),
+            j=np.concatenate([np.arange(n_in_mod) + reg * n_in_mod for reg in tms_regions])
+        )
+        TMS_IN_SYN.w = tms_weight
+        echo_end(echo2, "({:,} synapses)".format(len(TMS_EX_SYN) + len(TMS_IN_SYN)))
+
     echo_end(echo, "All synapses created")
 
     echo = echo_start("Supplying Poisson input to network... ")
@@ -158,6 +213,7 @@ def run_experiment(
         'n_in_mod': n_in_mod,
         'mu_w': mu_w,
         'mu_d': mu_d,
+        'tms_time': tms_time/ms,
     }
     if save_output:
         fname = "experiment_data/exp10_{}sec.pickle".format(int(duration/1000))
