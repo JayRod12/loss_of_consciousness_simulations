@@ -19,8 +19,8 @@ exin_w, inex_w, inin_w = (10,2), (10,2), (10,2)
 exin_d, inex_d, inin_d = (2,1), (5,2), (5,2)
 
 exin_conn, inex_conn, inin_conn = 0.7, 1.0, 1.0
-min_d, max_d = 1, 20
-min_w, max_w = 0, 15
+min_d, max_d = 1, 15
+min_w, max_w = 5, 15
 min_sigma_w, max_sigma_w = 1, 3
 min_sigma_d, max_sigma_d = 1, 3
 
@@ -32,7 +32,6 @@ def run_experiment(
         duration=5000,
         inter_conn=inter_connectivity,
         inter_scaling=inter_scaling_factor,
-        log_scaling=False,
         save_output=False,
         verbose=False
     ):
@@ -49,8 +48,6 @@ def run_experiment(
 
     EX_G = ExcitatoryNeuronGroup(n_ex)
     IN_G = InhibitoryNeuronGroup(n_in)
-#    EX_G.v = '(rand()*10 - 65) * mV'
-#    IN_G.v = '(rand()*10 - 65) * mV'
 
     # Define all synapse objects
     echo = echo_start("Setting up synapses... \n")
@@ -120,12 +117,8 @@ def run_experiment(
     INTER_EX_EX_SYN.delay = \
             delay_matrix[np.array(synapses_i/n_ex_mod), np.array(synapses_j/n_ex_mod)] * ms
 
-    if log_scaling:
-        INTER_EX_EX_SYN.w = np.log(CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod]) * \
-                                inter_scaling * mV
-    else:
-        INTER_EX_EX_SYN.w = CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod] * \
-                                inter_scaling * mV
+    INTER_EX_EX_SYN.w = CIJ[synapses_i/n_ex_mod, synapses_j/n_ex_mod] * \
+                            inter_scaling * mV
 
     echo_end(echo2, "({:,} synapses)".format(len(INTER_EX_EX_SYN)))
     echo_end(echo, "All synapses created")
@@ -135,8 +128,7 @@ def run_experiment(
     # Use the same number of Poisson Inputs (40) as in PING model.
     # N = Number of poisson inputs provided to each neuron in EX_G
     POISSON_INPUT_WEIGHT=8*mV
-    #PI_EX = PoissonInput(EX_G, 'v', len(EX_G), 20*Hz, weight=POISSON_INPUT_WEIGHT)
-    PI_EX = PoissonInput(EX_G, 'v', 40, 20*Hz, weight=POISSON_INPUT_WEIGHT)
+    PI_EX = PoissonInput(EX_G, 'v', n_ex_mod, 20*Hz, weight=POISSON_INPUT_WEIGHT)
 
     echo_end(echo)
 
@@ -245,7 +237,6 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--duration', help='duration of the simulation in milliseconds', type=int)
     parser.add_argument('--inter_conn', help='inter-modular network connectivity', type=float)
     parser.add_argument('--inter_scaling', help='inter-modular weight scaling factor', type=float)
-    parser.add_argument('--log_scaling', help='use logarithmic inter-modular weight scaling', action='store_true')
     parser.add_argument('-v', '--verbose', help='use logarithmic inter-modular weight scaling', action='store_true')
     parser.add_argument('--sweep', help='Do a parameter sweep, ignores all other arguments', action='store_true')
     args = parser.parse_args()
@@ -275,7 +266,7 @@ if __name__ == '__main__':
         save_output_to_file = False
 
         data = run_experiment(modules, duration, inter_conn, inter_scaling,
-                args.log_scaling, save_output_to_file, args.verbose)
+                save_output_to_file, args.verbose)
     else:
         duration = 5000
         p = Pool(5)
