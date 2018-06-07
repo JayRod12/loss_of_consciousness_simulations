@@ -1,28 +1,26 @@
 # Input: perturbation data 300ms/500ms
-#   perturbation occurs at t_pert ms
+#   perturbation occurs at tms_time ms
 # Output: PCI index
 
 from brian2 import *
+from lz76 import LZ76
 import pandas as pd
 
 import power_spectral_density as psd
 
 t_post = 300
+t_pre = 300
 
 def pci(data, dt, shift):
-    X, Y, n_mod, n_ex_mod, t_pert = [
+    X, Y, n_mod, n_ex_mod, tms_time = [
         data[k]
         for k
-        in ['X', 'Y', 'n_mod', 'n_ex_mod', 't_pert']
+        in ['X', 'Y', 'n_mod', 'n_ex_mod', 'tms_time']
     ]
-#    t_pert = 2000
 
-    t1, t2, t3 = 1000, t_pert, t_pert + t_post
+    t1, t2, t3 = tms_time - t_pre, tms_time, tms_time + t_post
 
     # Group spike by modules
-    #pre_data = [[] for _ in range(n_mod)]
-    #post_data = [[] for _ in range(n_mod)]
-
     X = pd.Series(X)
     Y = pd.Series(Y // n_ex_mod)
     gb = X.groupby(Y)
@@ -41,15 +39,11 @@ def pci(data, dt, shift):
             psd.moving_average(x[msk1], dt, shift, t1, t2)[0]
         post_data[mod * steps2 : (mod + 1) * steps2] = \
             psd.moving_average(x[msk2], dt, shift, t2, t3)[0]
-#        pre_mean[mod] = pre_data[mod].mean()
-#        pre_std[mod] = pre_data[mod].std()
-#        post_data[mod] = psd.moving_average(x[msk2], dt, shift, t2, t3)
 
-    return pre_data, post_data
+    # PCI
+    pre_mean, pre_std = pre_data.mean(), pre_data.std()
+    post_binarized = (post_data > pre_mean + 2 * pre_std).astype(int)
+    lz_complexity = LZ76(post_binarized) * np.log(len(post_data)) / len(post_data)
 
-
-
-    # Group data by modules?
-
-     
+    return pre_data, post_data, lz_complexity
 

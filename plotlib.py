@@ -18,7 +18,7 @@ plt.rc('lines', linewidth=3)
 plt.rc('legend', fontsize=14)
 
 
-def calc_lz_mod(mod, modules, dt, shift, start, end):
+def _calc_lz_mod(mod, modules, dt, shift, start, end):
     x, _ = psd.moving_average(modules[mod], dt, shift, start, end)
     binx = (x > x.mean()).astype(int)
     return LZ76(binx)
@@ -39,7 +39,7 @@ def get_lz_comp(data, start, end, dt, shift):
     echo_end(e)
     
     
-    f = partial(calc_lz_mod,
+    f = partial(_calc_lz_mod,
         modules=modules,
         dt=dt,
         shift=shift,
@@ -53,7 +53,7 @@ def get_lz_comp(data, start, end, dt, shift):
     pool.close()
     echo_end(e)
 
-    return lz_comp
+    return np.array(lz_comp)
 
 def plot_lz(lz_comp, start, end, dt, shift, ax=None, label=None):
     n_steps = float(end - start) / shift
@@ -62,12 +62,19 @@ def plot_lz(lz_comp, start, end, dt, shift, ax=None, label=None):
     #y, binedges = np.histogram(lz_comp, bins=100) 
     #bincenters = 0.5 * (binedges[1:] + binedges[:-1])
     #ax.plot(bincenters, y*np.log(n_steps)/n_steps, '.', label=label)
+    kwargs = dict(
+        #histtype='stepfilled',
+        alpha=0.5,
+        normed=True,
+        bins=100,
+        label=label
+    )
+    ax.hist(lz_comp*np.log(n_steps)/n_steps, **kwargs)
 
-    ax.hist(lz_comp*np.log(n_steps)/n_steps, label=label)
+#    ax.hist(lz_comp*np.log(n_steps)/n_steps, label=label, bins=100)
 
 
 def plot_ma(n, x, dt, shift, ax=None, color=None, label=None):
-    #dt, shift = 50, 10
     start = 1000
     end = max(start, max(x))
     ma, t = psd.moving_average(x, dt, shift, start, end)
@@ -125,26 +132,18 @@ def plot_stuff(data, start=1000, end=2000, min_mod=None, max_mod=None, save=None
     start_time = start
     end_time = end
     
-    #mask1 = np.logical_and(X >= start_time, X < end_time)
-    #mask2 = np.logical_and(X2 >= start_time, X2 < end_time)
-    
     print("{:,} exc spikes, {:,} inh spikes".format(len(X), len(X2)))
     
     mask = np.logical_and.reduce((X >= start_time, X < end_time, Y >= min_ex_y, Y < max_ex_y))
     mask2 = np.logical_and.reduce((X2 >= start_time, X2 < end_time, Y2 >= min_in_y, Y2 < max_in_y))
     
-    print(min_in_y, min_ex_y, max_in_y, max_ex_y)
-    print(Y[mask][:10])
-    print(Y2[mask2][:10])
     fig, axarr = plt.subplots(3, figsize=(15,15))
     axarr[0].plot(X[mask], Y[mask]-min_ex_y, '.', color='C0', label='Excitatory Population')
     axarr[0].plot(X2[mask2], Y2[mask2]-min_in_y+(max_ex_y-min_ex_y), '.', color='C1', label='Inhibitory Population')
-#    axarr[0].plot(X[np.logical_and(mask, (Y // n_ex_mod) == 
     axarr[0].set_ylabel('Neuron index')
     axarr[0].set_xlabel('Simulation Time (ms)')
     axarr[0].set_title('Raster plot of spikes')
     axarr[0].set_xlim([start_time, end_time])
-    #axarr[0].legend(loc=3)
     
     dt, shift = 5, 5
     plot_ma(n_ex, X[mask], dt, shift, ax=axarr[1] , label='Excitatory Population')
@@ -153,7 +152,6 @@ def plot_stuff(data, start=1000, end=2000, min_mod=None, max_mod=None, save=None
     axarr[1].set_xlim([start_time, end_time])
     axarr[1].legend()
     
-    #fig, axarr = plt.subplots(2, sharex=True, figsize=(15,6))
     plot_spectrum(X, dt, shift, ax=axarr[2], label='Excitatory Population')
     plot_spectrum(X2, dt, shift, ax=axarr[2], label='Inhibitory Population')
     axarr[2].set_xticks(np.arange(0, (1000.0/shift)/2.0 + 1, 10))
