@@ -15,8 +15,6 @@ import power_spectral_density as psd
 
 #PING_CONFIG
 n_ex_mod, n_in_mod = 40, 10
-exin_w, inex_w, inin_w = (10,2), (10,2), (10,2)
-exin_d, inex_d, inin_d = (2,1), (5,2), (5,2)
 
 exin_conn, inex_conn, inin_conn = 0.7, 1.0, 1.0
 min_d, max_d = 1, 15
@@ -39,8 +37,8 @@ tms_duration = 50
 # Thalamus settings
 n_ex_th = 200
 n_in_th = 50
-th_out_w = (10,2)
-th_out_d = (10,2)
+th_out_w, th_out_d = (10, 2), (10, 2)
+th_w, th_d = (10, 2), (5, 2)
 th_out_conn = 0.1
 
 
@@ -152,15 +150,14 @@ def run_experiment(
             on_pre='v += w',
         )
         echo2 = echo_start('\tTH_OUT_SYN... ')
-        TH_OUT_SYN.connect(p=th_out_conn)
-        TH_OUT_SYN.w[:,:] = np.clip(
-            np.random.normal(th_out_w[0], th_out_w[1], size=len(TH_OUT_SYN)),
-            min_w, max_w
-        ) * thalamus_modulation * mV
-        TH_OUT_SYN.delay[:,:] = np.clip(
-            np.random.normal(th_out_d[0], th_out_d[1], size=len(TH_OUT_SYN)),
-            min_d, max_d
-        ) * ms
+        syn, weights, delays = get_synapses(
+            1, n_ex_th, n_ex, [th_out_w[0]], [th_out_w[1]],
+            [th_out_d[0]], [th_out_d[1]], th_out_conn
+        )
+        s_i, s_j = zip(*syn)
+        TH_OUT_SYN.connect(i=s_i, j=s_j)
+        TH_OUT_SYN.w = weights * thalamus_modulation
+        TH_OUT_SYN.delay = delays
         echo_end(echo2, "({:,} synapses)".format(len(TH_OUT_SYN)))
 
 
@@ -169,18 +166,15 @@ def run_experiment(
             on_pre='v += w',
         )
         echo2 = echo_start('\tTH_EX_IN_SYN... ')
-        TH_EX_IN_SYN.connect(
-            condition='int(i/n_ex_th) == int(j/n_in_th)',
-            p=exin_conn
+        syn, weights, delays = get_synapses(
+            1, n_ex_th, n_in_th, [th_w[0]], [th_w[1]],
+            [th_d[0]], [th_d[1]], exin_conn
         )
-        TH_EX_IN_SYN.w[:,:] = np.clip(
-            np.random.normal(exin_w[0], exin_w[1], size=len(TH_EX_IN_SYN)),
-            min_w, max_w
-        ) * mV
-        TH_EX_IN_SYN.delay[:,:] = np.clip(
-            np.random.normal(exin_d[0], exin_d[1], size=len(TH_EX_IN_SYN)),
-            min_d, max_d
-        ) * ms
+        s_i, s_j = zip(*syn)
+        TH_EX_IN_SYN.connect(i=s_i, j=s_j)
+        TH_EX_IN_SYN.w = weights
+        TH_EX_IN_SYN.delay = delays
+
 
         echo_end(echo2, "({:,} synapses)".format(len(TH_EX_IN_SYN)))
 
@@ -189,20 +183,16 @@ def run_experiment(
             model='w: volt',
             on_pre='v -= w',
         )
-        echo2 = echo_start('\tIN_EX_SYN... ')
-        TH_IN_EX_SYN.connect(
-            condition='int(i/n_in_th) == int(j/n_ex_th)',
-            p=inex_conn
+        echo2 = echo_start('\tTH_IN_EX_SYN... ')
+        syn, weights, delays = get_synapses(
+            1, n_in_th, n_ex_th, [th_w[0]], [th_w[1]],
+            [th_d[0]], [th_d[1]], inex_conn
         )
-        TH_IN_EX_SYN.w[:,:] = np.clip(
-            np.random.normal(inex_w[0], inex_w[1], size=len(TH_IN_EX_SYN)),
-            min_w, max_w
-        ) * mV
+        s_i, s_j = zip(*syn)
+        TH_IN_EX_SYN.connect(i=s_i, j=s_j)
+        TH_IN_EX_SYN.w = weights
+        TH_IN_EX_SYN.delay = delays
 
-        TH_IN_EX_SYN.delay[:,:] = np.clip(
-            np.random.normal(inex_d[0], inex_d[1], size=len(TH_IN_EX_SYN)),
-            min_d, max_d
-        ) * ms
         echo_end(echo2, "({:,} synapses)".format(len(TH_IN_EX_SYN)))
 
         # Inhibitory-Inhibitory synapses within modules
@@ -210,20 +200,15 @@ def run_experiment(
             model='w: volt',
             on_pre='v -= w',
         )
-        echo2 = echo_start('\tIN_IN_SYN... ')
-        TH_IN_IN_SYN.connect(
-            condition='int(i/n_in_th) == int(j/n_in_th)',
-            p=inin_conn
+        echo2 = echo_start('\tTH_IN_IN_SYN... ')
+        syn, weights, delays = get_synapses(
+            1, n_in_th, n_in_th, [th_w[0]], [th_w[1]],
+            [th_d[0]], [th_d[1]], inin_conn
         )
-        TH_IN_IN_SYN.w[:,:] = np.clip(
-            np.random.normal(inin_w[0], inin_w[1], size=len(TH_IN_IN_SYN)),
-            min_w, max_w
-        ) * mV
-
-        TH_IN_IN_SYN.delay[:,:] = np.clip(
-            np.random.normal(inin_d[0], inin_d[1], size=len(TH_IN_IN_SYN)),
-            min_d, max_d
-        ) * ms
+        s_i, s_j = zip(*syn)
+        TH_IN_IN_SYN.connect(i=s_i, j=s_j)
+        TH_IN_IN_SYN.w = weights
+        TH_IN_IN_SYN.delay = delays
         echo_end(echo2, "({:,} synapses)".format(len(TH_IN_IN_SYN)))
 
 
