@@ -55,28 +55,29 @@ def get_lz_comp(data, start, end, dt, shift):
 
     return np.array(lz_comp)
 
-def plot_lz(lz_comp, start, end, dt, shift, ax=None, label=None):
+def plot_lz(lz_comp, start, end, dt, shift, ax=None, **kwargs):
     n_steps = float(end - start) / shift
     if not ax:
         _, ax = plt.subplots() 
     #y, binedges = np.histogram(lz_comp, bins=100) 
     #bincenters = 0.5 * (binedges[1:] + binedges[:-1])
     #ax.plot(bincenters, y*np.log(n_steps)/n_steps, '.', label=label)
-    kwargs = dict(
+    kwargs.update(dict(
         #histtype='stepfilled',
-        alpha=0.5,
+        alpha=0.75,
         normed=True,
-        bins=100,
-        label=label
-    )
+        bins=20,
+    ))
     ax.hist(lz_comp*np.log(n_steps)/n_steps, **kwargs)
 
 #    ax.hist(lz_comp*np.log(n_steps)/n_steps, label=label, bins=100)
 
 
-def plot_ma(n, x, dt, shift, ax=None, color=None, label=None):
-    start = 1000
-    end = max(start, max(x))
+def plot_ma(n, x, dt, shift, ax=None, start=None, end=None,**kwargs):#color=None, label=None):
+    if not start:
+        start = 1000
+    if not end:
+        end = max(start, max(x))
     ma, t = psd.moving_average(x, dt, shift, start, end)
     ma = 100.0 * ma / n
     if not ax:
@@ -84,7 +85,7 @@ def plot_ma(n, x, dt, shift, ax=None, color=None, label=None):
         
     #ax.set_xlabel('Time (ms)', fontsize=18)
     ax.set_ylabel('Firing rate\n (% neurons/ms)')
-    ax.plot(t, ma, color=color, label=label)
+    ax.plot(t, ma, **kwargs)#color=color, label=label)
     
 def plot_spectrum(x, dt, shift, ax=None, color=None, label=None):
     #dt, shift = 75, 10
@@ -179,6 +180,28 @@ def plot_modules(data, module_list, start=1000, end=2000):
     plt.show()
 
 
+def show_sim_stats(data):
+    X, X2 = data['X'], data['X2']
+    n1, n2 = data['n_ex'], data['n_in']
+    duration = data['duration']
+    dt, shift = 5, 5
+    start = 1000
+    end = duration
+    ma, t = psd.moving_average(X, dt, shift, start, end)
+    ma2, _ = psd.moving_average(X2, dt, shift, start, end)
 
+    mean1 = 100.0 * ma.mean() / n1
+    mean2 = 100.0 * ma2.mean() / n2
+    mean_tot = 100.0 * (ma + ma2).mean() / (n1+n2)
+    print("Simulation lasted {} seconds".format(duration//1000))
+    print("Number of spikes")
+    print("\tExcitatory: {:,} spikes".format(len(X)))
+    print("\tInhibitory: {:,} spikes".format(len(X2)))
+    print("\tTotal: {:,} spikes".format(len(X2) + len(X)))
+    print("Mean firing rate of the network:")
+    print("\tExcitatory population: {:.2f}%".format(mean1))
+    print("\tInhibitory population: {:.2f}%".format(mean2))
+    print("\tAll neurons: {:.2f}%".format(mean_tot))
+    
     
 

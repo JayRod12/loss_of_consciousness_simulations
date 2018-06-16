@@ -23,7 +23,7 @@ min_sigma_w, max_sigma_w = 1, 3
 min_sigma_d, max_sigma_d = 1, 3
 
 inter_connectivity = 0.1
-inter_scaling_factor = 20
+inter_scaling_factor = 50
 
 # TMS settings
 tms_regions = [90]
@@ -51,6 +51,7 @@ def run_experiment(
         with_tms=False,
         with_thalamus=False,
         thalamus_modulation=1.0,
+        poisson_input=True,
         tms_time=tms_stimulus_time,
         verbose=False
     ):
@@ -266,7 +267,9 @@ def run_experiment(
     # Use the same number of Poisson Inputs (40) as in PING model.
     # N = Number of poisson inputs provided to each neuron in EX_G
     POISSON_INPUT_WEIGHT=8*mV
-    PI_EX = PoissonInput(EX_G, 'v', n_ex_mod, 20*Hz, weight=POISSON_INPUT_WEIGHT)
+    if poisson_input:
+        PI_EX = PoissonInput(EX_G, 'v', n_ex_mod, 20*Hz, weight=POISSON_INPUT_WEIGHT)
+
     if with_thalamus:
         PI_THEX = PoissonInput(THEX_G, 'v', len(THEX_G), 4.375*Hz, weight=POISSON_INPUT_WEIGHT)
 

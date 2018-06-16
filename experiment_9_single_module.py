@@ -55,8 +55,8 @@ def run_simulation(
     IN_EX_CONN = 1
     IN_IN_CONN = 1
 
-    MIN_DELAY, MAX_DELAY= 1, 20
-    MIN_W, MAX_W = 0, 15
+    MIN_DELAY, MAX_DELAY= 1, 16
+    MIN_W, MAX_W = 0, 16
 
     echo = echo_start("Setting up synapses:\n")
 
