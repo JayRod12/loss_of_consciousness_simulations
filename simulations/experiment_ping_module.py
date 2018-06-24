@@ -8,7 +8,6 @@ achieve high-frequency oscillatory dynamics in the Gamma band (30-80Hz).
 from brian2 import *
 from echo_time import *
 from neuron_groups import *
-from izhikevich_constants import *
 from numpy.random import random_sample
 from collections import defaultdict
 
