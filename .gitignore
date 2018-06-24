@@ -1,3 +1,6 @@
 *.DS_Store
 *.swp
 *.pyc
+*.pickle
+venv/
+.ipynb_checkpoints/
