@@ -1,4 +1,6 @@
-
+"""
+Brain model using the connectome and setting each node as an individual neuron.
+"""
 from brian2 import *
 from echo_time import *
 from neuron_groups import *
@@ -10,10 +12,16 @@ import scipy.io as spio
 import matplotlib.pyplot as plt
 import power_spectral_density as psd
 
-def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor, verbose=False):
+def run_experiment(n, w1, w2, w3, w4):
+    """
+        .. code-block:: python
+            >>> import models.experiment_connectome_single_neurons as ex
+            >>> from utils.plotlib import *
+            >>> data = ex.run_simulation()
+            >>> plot_sim(data, max_mod=10)
+    """
 
     seed(152345)
-    #seed(1777231)
 
     CIJ  = spio.loadmat('data/Conectoma.mat')['CIJ_fbden_average']
     XYZ = spio.loadmat('data/coords_sporns_2mm.mat')['coords_new']
@@ -56,24 +64,7 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     EX_EX_SYN = Synapses(EX_G,
         model='w : volt',
         on_pre='v += w',
- #       delay=1*ms
     )
-
-    delay_matrix = np.zeros((N, N))
-    synapses_i, synapses_j = [], []
-    #delay_matrix = np.zeros((N_EX, N_EX))
-    #for i in range(N_EX):
-    #    ex_i = EX_NEURONS[i]
-    #    x, y, z = XYZ[ex_i]
-    #    for j in range(N_EX):
-    #        ex_j = EX_NEURONS[j]
-    #        if CIJ[ex_i][ex_j] > 0:
-    #            x2, y2, z2 = XYZ[ex_j]
-    #            delay_matrix[i][j] = math.sqrt((x-x2)**2 + (y-y2)**2 + (z-z2)**2)/2
-    #            #synapses_i.append(ex_i)
-    #            #synapses_j.append(ex_j)
-    #            synapses_i.append(i)
-    #            synapses_j.append(j)
 
     for i in range(N):
         if i < N_EX:
@@ -96,7 +87,6 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
 
     EX_EX_SYN.connect(i=synapses_i, j=synapses_j)
     EX_EX_SYN.w = CIJ[EX_NEURONS[synapses_i], EX_NEURONS[synapses_j]] * EX_EX_SCALING * mV
-    print(EX_EX_SYN.w[:5])
     EX_EX_SYN.delay[:,:] = delay_matrix[synapses_i, synapses_j] * ms
     echo_start(" ({:,} synapses)".format(len(synapses_i)))
 
@@ -107,19 +97,13 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     EX_IN_SYN = Synapses(EX_G, IN_G,
         model='w : volt',
         on_pre='v += w',
-#       delay=1*ms
     )
-#    inhibitory_shuffled = np.random.permutation(N_IN)
     synapses_i = np.arange(N_EX)
     synapses_j = np.random.permutation(N_IN)[synapses_i % N_IN]
     EX_IN_SYN.connect(i=synapses_i, j=synapses_j)
     EX_IN_SYN.delay[:,:] = delay_matrix[synapses_i, synapses_j + N_EX] * ms
 
-#    for i in range(N_EX):
-#        EX_IN_SYN.connect(i=i, j=inhibitory_shuffled[i%N_IN])
-
     EX_IN_SYN.w[:,:] = 'rand() * EX_IN_SCALING * EX_IN_MAX_WEIGHT'
-    print(EX_IN_SYN.w[:5])
     echo_start(" ({:,} synapses)".format(len(EX_IN_SYN.w)))
 
     echo_end(echo)
@@ -128,15 +112,12 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     IN_EX_SYN = Synapses(IN_G, EX_G,
         model='w : volt',
         on_pre='v += w',
- #       delay=1*ms
     )
     for in_neuron in range(N_IN):
         IN_EX_SYN.connect(i=in_neuron, j=range(N_EX))
         IN_EX_SYN.delay[in_neuron,:] = delay_matrix[in_neuron, np.arange(N_EX)] * ms
 
     IN_EX_SYN.w[:,:] = 'rand() * IN_EX_SCALING * IN_EX_MIN_WEIGHT'
-    print(IN_EX_SYN.w[:5])
-#    IN_EX_SYN.delay[:,:]
     
     echo_start(" ({:,} synapses)".format(len(IN_EX_SYN.w)))
     echo_end(echo)
@@ -145,7 +126,6 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     IN_IN_SYN = Synapses(IN_G,
         model='w : volt',
         on_pre='v += w',
-#        delay=1*ms
     )
     
     for in_neuron in range(N_IN):
@@ -161,8 +141,6 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
     # Poisson input to ensure network activity doesn't die down
     POISSON_INPUT_WEIGHT=2*mV
     PI_EX = PoissonInput(EX_G, 'v', len(EX_G), 1*Hz, weight=POISSON_INPUT_WEIGHT)
-    #EX_G.v = -65*mV
-    #IN_G.v = -65*mV
     
     M_EX = SpikeMonitor(EX_G)
     M_IN = SpikeMonitor(IN_G)
@@ -186,8 +164,6 @@ def run_experiment(n, w1, w2, w3, w4):#, duration, connectivity, scaling_factor,
         'Y': Y,
         'X2': X2,
         'Y2': Y2,
-        #'M_EX': M_EX,
-        #'M_IN': M_IN,
     }
     return DATA
 

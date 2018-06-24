@@ -2,9 +2,11 @@ import numpy as np
 
 MAX_INT = (1<<32)-1
 
-# Path length averaged over all pairs of nodes    
-# G adjacency matrix
 def mean_path_length(G):
+    """
+        Path length averaged over all pairs of nodes.
+        ``G`` is an adjacency matrix.
+    """
     L = Floyd_Warshall(G)
     N = len(G)
     total_length = 0
@@ -15,8 +17,11 @@ def mean_path_length(G):
             total_length += L[u,v]
     return total_length / (N*(N-1)) 
 
-# G adjacency matrix
 def Floyd_Warshall(G):
+    """
+        Floyd-Warshall algorithm for calculating the shortest path between
+        all pairs of nodes in a network.
+    """
     N = len(G)
     #L = np.((N,N), (1<<32) -1, dtype=np.int32)
     L = np.copy(G)
@@ -33,6 +38,9 @@ def Floyd_Warshall(G):
     return L
 
 def clustering_coefficient_vertex(G, v):
+    """
+        Calculate the clustering coefficient of a given vertex.
+    """
     ns = neighbours(G,v)
     #print(v, ns)
     if len(ns) < 2:
@@ -45,8 +53,11 @@ def clustering_coefficient_vertex(G, v):
     possible_edges = len(ns) * (len(ns) - 1) / 2 
     return float(inter_neighbour_edges) / (2*possible_edges)
 
-# G adjacency list
 def clustering_coefficient(G):
+    """
+        Clustering coefficient of the whole network, which 
+        is the clustering coefficient of all vertices.
+    """
     N = len(G)
     coeff = 0
     for v in range(N):
@@ -56,8 +67,10 @@ def clustering_coefficient(G):
 
     return float(coeff) / N
 
-# Get neighbours of a vertex
 def neighbours(G, v):
+    """
+        Get neighbours of a vertex.
+    """
     ns = []
     for u, is_connected in enumerate(G[v]):
         if is_connected:
@@ -65,6 +78,9 @@ def neighbours(G, v):
     return ns
 
 def small_world_index(G):
+    """
+        Small world index.
+    """
     N = len(G)
     mpl = mean_path_length(G)
     cc = clustering_coefficient(G)
@@ -76,6 +92,9 @@ def small_world_index(G):
     return (float(cc)/rand_cc) / (float(mpl)/rand_mpl)
 
 def mean_degree(G):
+    """
+        Mean degree of the network.
+    """
     N = len(G)
     degree = 0
     for v in range(N):

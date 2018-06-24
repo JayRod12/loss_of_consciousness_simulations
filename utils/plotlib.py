@@ -1,3 +1,6 @@
+"""
+Utility containing different plotting functions.
+"""
 
 from lz76 import LZ76
 from echo_time import *
@@ -19,11 +22,18 @@ plt.rc('legend', fontsize=14)
 
 
 def _calc_lz_mod(mod, modules, dt, shift, start, end):
+    """
+        Calculates the Lempel-Ziv complexity of a single module.
+    """
     x, _ = psd.moving_average(modules[mod], dt, shift, start, end)
     binx = (x > x.mean()).astype(int)
     return LZ76(binx)
 
 def get_lz_comp(data, start, end, dt, shift):
+    """
+        Calculates the Lempel-Ziv complexity of all the modules in the
+        simulation, using multiple cores.
+    """
     n_mod, n_ex_mod, X, Y = [
         data[k]
         for k
@@ -56,6 +66,11 @@ def get_lz_comp(data, start, end, dt, shift):
     return np.array(lz_comp)
 
 def plot_lz(lz_comp, start, end, dt, shift, ax=None, **kwargs):
+    """
+        Plot Lempel-Ziv complexity.
+        Takes as input LZ complexity as obtained from calling the method
+        ``get_lz_comp`` above.
+    """
     n_steps = float(end - start) / shift
     if not ax:
         _, ax = plt.subplots() 
@@ -74,6 +89,11 @@ def plot_lz(lz_comp, start, end, dt, shift, ax=None, **kwargs):
 
 
 def plot_ma(n, x, dt, shift, ax=None, start=None, end=None,**kwargs):#color=None, label=None):
+    """
+        Plots the moving average firing rate of a simulation, given the times associated
+        to spikes as ``x``. The output is normalized as a percentage of the number of neurons
+        ``n``. See psd.moving_average for details of the use of ``dt`` and ``shift``.
+    """
     if not start:
         start = 1000
     if not end:
@@ -88,6 +108,9 @@ def plot_ma(n, x, dt, shift, ax=None, start=None, end=None,**kwargs):#color=None
     ax.plot(t, ma, **kwargs)#color=color, label=label)
     
 def plot_spectrum(x, dt, shift, ax=None, color=None, label=None):
+    """ 
+        Plots the power-frequency spectrum of a simulation in a semilog plot.
+    """
     #dt, shift = 75, 10
     if not ax:
         _, ax = plt.subplots()
@@ -99,7 +122,16 @@ def plot_spectrum(x, dt, shift, ax=None, color=None, label=None):
     ax.set_ylabel('Power')
 
 
-def plot_stuff(data, start=1000, end=2000, min_mod=None, max_mod=None, save=None):
+def plot_sim(data, start=1000, end=2000, min_mod=None, max_mod=None, save=None):
+    """
+        Summary plot of a simulation showing three plots:
+            - Top: Raster plot of spikes
+            - Middle: Moving average firing rate
+            - Bottom: Power-frequency spectrum
+        The modules that are shown in the top two plots can be controlled via ``min_mod``
+        and ``max_mod``, the minimum numbered and maximum numbered modules. ``start``
+        and ``end`` control the simulation time plotted.
+    """
     n_ex, n_in, X, Y, X2, Y2 = [
         data[k]
         for k
@@ -164,6 +196,10 @@ def plot_stuff(data, start=1000, end=2000, min_mod=None, max_mod=None, save=None
     plt.show()
 
 def plot_modules(data, module_list, dt, shift, start=1000, end=2000, ax = None):
+    """
+        Method to plot a subset of the modules from the simulation in terms of their
+        moving average firing rates.
+    """
     n_ex, n_in, n_mod, n_ex_mod, n_in_mod, X, Y, X2, Y2 = [
         data[k]
         for k
@@ -185,6 +221,9 @@ def plot_modules(data, module_list, dt, shift, start=1000, end=2000, ax = None):
 
 
 def show_sim_stats(data):
+    """
+        Print a few statistics about a simulation.
+    """
     X, X2 = data['X'], data['X2']
     n1, n2 = data['n_ex'], data['n_in']
     duration = data['duration']

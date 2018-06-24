@@ -1,3 +1,11 @@
+"""
+Connectome with PING oscillatory modules on each node.
+
+This is the main experiment of the project. It's a model of the brain that combines
+human connectome data obtained from Hagmann et al. with PING oscillating groups of neurons
+on each node of the network.
+"""
+
 from brian2 import *
 from lz76 import LZ76
 from tqdm import tqdm
@@ -13,35 +21,36 @@ import scipy.io as spio
 import matplotlib.pyplot as plt
 import power_spectral_density as psd
 
-#PING_CONFIG
-n_ex_mod, n_in_mod = 40, 10
 
-exin_conn, inex_conn, inin_conn = 0.7, 1.0, 1.0
-min_d, max_d = 1, 15
-min_w, max_w = 5, 15
-min_sigma_w, max_sigma_w = 1, 3
-min_sigma_d, max_sigma_d = 1, 3
-
+# Inter-modular connectivity settings
 inter_connectivity = 0.1
 inter_scaling_factor = 50
 
-# TMS settings
-tms_regions = [90]
-#tms_regions = [90, 94, 95, 84]
-#n_tms = n_ex_mod + n_in_mod * len(tms_regions)
-n_tms = (n_ex_mod + n_in_mod) * len(tms_regions)
-tms_stimulus_time = 1500 * ms
-tms_weight = 100 * mV
-tms_duration = 50
-tms_duration = 1
+# PING module configuration
+n_ex_mod, n_in_mod = 40, 10
+exin_conn, inex_conn, inin_conn = 0.7, 1.0, 1.0
 
-# Thalamus settings
+# Thalamus PING modules settings
 n_ex_th = 200
 n_in_th = 50
 th_out_w, th_out_d = (10, 2), (10, 2)
 th_w, th_d = (10, 2), (5, 2)
 th_out_conn = 0.1
 
+# PING settings
+min_d, max_d = 1, 15
+min_w, max_w = 5, 15
+min_sigma_w, max_sigma_w = 1, 3
+min_sigma_d, max_sigma_d = 1, 3
+
+# TMS settings
+tms_regions = [90]
+#tms_regions = [90, 94, 95, 84]
+n_tms = (n_ex_mod + n_in_mod) * len(tms_regions)
+tms_stimulus_time = 1500 * ms
+tms_weight = 100 * mV
+tms_duration = 50
+tms_duration = 1
 
 def run_experiment(
         n_mod=1000,
@@ -56,16 +65,28 @@ def run_experiment(
         tms_time=tms_stimulus_time,
         verbose=False
     ):
+    """
+        This constructs a brain model and simulates it for ``duration`` milliseconds.
+        .. code-block:: python
+            >>> import models.experiment_connectome_ping as ex
+            >>> from utils.plotlib import *
+            >>> data = ex.run_simulation()
+            >>> plot_sim(data, max_mod=10)
+    """
 
+    # Seed numpy's PRNG
     seed(1357)
 
+    # Load connectome data
     CIJ  = spio.loadmat('data/Conectoma.mat')['CIJ_fbden_average']
     XYZ = spio.loadmat('data/coords_sporns_2mm.mat')['coords_new']
     n_mod = min(n_mod, len(XYZ)) # Number of modules
 
+    # Total number of excitatory and inhibitory neurons
     n_ex = n_ex_mod * n_mod
     n_in = n_in_mod * n_mod
 
+    # Create neuron populations
     EX_G = ExcitatoryNeuronGroup(n_ex)
     IN_G = InhibitoryNeuronGroup(n_in)
     if with_thalamus:
@@ -75,6 +96,7 @@ def run_experiment(
     # Define all synapse objects
     echo = echo_start("Setting up synapses... \n")
 
+    # Weights and delays for all modules
     mu_w, sigma_w, mu_d, sigma_d = get_synapse_weights_and_delays(n_mod)
 
     # Excitatory-Inhibitory synapses within modules
@@ -146,6 +168,7 @@ def run_experiment(
     echo_end(echo2, "({:,} synapses)".format(len(INTER_EX_EX_SYN)))
 
     if with_thalamus:
+        # Outward synapses towards all the connectome
         TH_OUT_SYN = Synapses(
             THEX_G, EX_G,
             model='w : volt',
@@ -163,6 +186,7 @@ def run_experiment(
         echo_end(echo2, "({:,} synapses)".format(len(TH_OUT_SYN)))
 
 
+        # Excitatory-Inhibitory synapses within thalamus module
         TH_EX_IN_SYN = Synapses(THEX_G, THIN_G,
             model='w: volt',
             on_pre='v += w',
@@ -180,7 +204,7 @@ def run_experiment(
 
         echo_end(echo2, "({:,} synapses)".format(len(TH_EX_IN_SYN)))
 
-        # Inhibitory-Excitatory synapses within modules
+        # Inhibitory-Excitatory synapses within thalamus module
         TH_IN_EX_SYN = Synapses(THIN_G, THEX_G,
             model='w: volt',
             on_pre='v -= w',
@@ -197,7 +221,7 @@ def run_experiment(
 
         echo_end(echo2, "({:,} synapses)".format(len(TH_IN_EX_SYN)))
 
-        # Inhibitory-Inhibitory synapses within modules
+        # Inhibitory-Inhibitory synapses within thalamus module
         TH_IN_IN_SYN = Synapses(THIN_G,
             model='w: volt',
             on_pre='v -= w',
@@ -278,10 +302,8 @@ def run_experiment(
 
     echo = echo_start("Running sym... ")
 
-#    recorded_neurons = [0, 1, 50, 90]
     M_EX = SpikeMonitor(EX_G)
     M_IN = SpikeMonitor(IN_G)
-#    M_V = StateMonitor(EX_G, 'v', record=recorded_neurons)
     run(duration*ms)
 
     echo_end(echo)
@@ -305,7 +327,7 @@ def run_experiment(
         'tms_time': tms_time/ms,
     }
     if save_output:
-        fname = "experiment_data/exp10_{}sec.pickle".format(int(duration/1000))
+        fname = "experiment_data/exp_conn_ping_{}sec.pickle".format(int(duration/1000))
         echo = echo_start("Storing data to {}... ".format(fname))
         with open(fname, 'wb') as f:
             pickle.dump(DATA, f)
@@ -314,6 +336,18 @@ def run_experiment(
     return DATA
 
 def get_synapse_weights_and_delays(n_mod):
+    """
+        Get means and standard deviations for the weights and delays of all
+        modules.
+        Input:
+            - n_mod (int): number of modules in the network.
+        Output:
+            - mu_w (float[]): mean weight between the neurons of each module in the network.
+            - sigma_w (float[]): standard deviation of the weight between the neurons of each
+                module in the network.
+            - mu_d (float[]): mean delay ""
+            - sigma_d (float[]): standard devaiation of the delay ""
+    """
     mu_w = (max_w - min_w) * np.random.random_sample((n_mod,)) + min_w
     sigma_w = (max_sigma_w - min_sigma_w) * np.random.random_sample((n_mod,)) + min_sigma_w
     mu_d = (max_d - min_d) * np.random.random_sample((n_mod,)) + min_d
@@ -322,6 +356,25 @@ def get_synapse_weights_and_delays(n_mod):
 
 
 def get_synapses(n_mod, n1, n2, mu_w, sigma_w, mu_d, sigma_d, conn):
+    """
+        For each of the ``n_mod`` modules, this method
+        creates synapses between two populations of n1 and n2
+        neurons respectively, with a connection probability of ``conn``.
+        It also provides the weights and delays associated to each synapse,
+        according to the means and standard deviations provided of each module
+        provided as arguments.
+        Input:
+            - n_mod: number of modules
+            - n1: number of neurons in the source population
+            - n2: number of neurons in the destination population
+            - mu_w, sigma_w, mu_d, sigma_d: as per method ``get_synapse_weights_and_delays``.
+        Output:
+            - synapses: a list of tuples (i, j) denoting the indices of the neurons
+                that each synapse is connecting. Neuron i is from the first neuron
+                group and neuron j is from the second.
+            - weights: list of weights for each of above synapses
+            - delays: list of delays for each of the above synapses
+    """
     synapses = [
         [
             (mod_i * n1 + i,  mod_i * n2 + j)
@@ -353,6 +406,15 @@ def get_synapses(n_mod, n1, n2, mu_w, sigma_w, mu_d, sigma_d, conn):
 
 
 def get_connectivity(n_mod, n_ex_mod, inter_conn, XYZ, CIJ):
+    """
+        Obtain synapses and delays from the connectome data 
+        ``XYZ`` and ``CIJ``.
+        Input:
+            - n_mod: number of modules
+            - n_ex_mod: number of excitatory neurons per module
+            - inter_conn: connection probability
+            - XYZ, CIJ: matrices from the connectome data
+    """
     synapses = []
     delay_matrix = np.zeros((n_mod, n_mod))
     for i in range(n_mod):

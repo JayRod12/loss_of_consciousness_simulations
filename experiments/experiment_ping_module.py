@@ -1,3 +1,10 @@
+"""
+PING architecture module.
+
+This experiment sets up a module of neurons following the PING architecture to
+achieve high-frequency oscillatory dynamics in the Gamma band (30-80Hz).
+"""
+
 from brian2 import *
 from echo_time import *
 from neuron_groups import *
@@ -17,31 +24,23 @@ import power_spectral_density as psd
 # Model a single Brodmann area as 50 neurons
 # Full-Ping oscillations >30 Hz
 
-#CONFIG = {
-#    'N_EX': 40,
-#    'N_IN': 10,
-#    'exin_w': (10,2),
-#    'inex_w': (10,2),
-#    'inin_w': (10,2),
-#    'exin_d': (2,1),
-#    'inex_d': (5,2),
-#    'inin_d': (5,2)
-#    'exin_conn': 0.7,
-#    'inex_conn': 0.7,
-#    'inin_conn': 0.7,
-#
-#}
-
 def run_simulation(
         n_ex=40,
         n_in=10,
-        exin_w=(10,2),
-        inex_w=(10,2),
-        inin_w=(10,2),
+        exin_w=(10,2), # Excitatory to inhibitory
+        inex_w=(10,2), # Inhibitory to excitatory
+        inin_w=(10,2), # Inhibitory to inhibitory
         exin_d=(2,1),
         inex_d=(5,2),
         inin_d=(5,2)
     ):
+    """
+        Run the simulation of the PING module.
+
+        The tuples of weights and delays represent the mean and standard
+        deviation of the weights and delays respectively joining the two
+        groups of excitatory and inhibitory neurons.
+    """
 
     seed(1978331)
 
@@ -128,8 +127,11 @@ def run_simulation(
     echo = echo_start("Running sym... ")
     M_EX = SpikeMonitor(EX_G)
     M_IN = SpikeMonitor(IN_G)
+
+    # Run the simulation for ``duration`` milliseconds
     duration = 5000 * ms
     run(duration)
+
     echo_end(echo)
 
 
@@ -146,9 +148,4 @@ def run_simulation(
         'Y2': Y_IN,
     }
     return RESULTS
-
-if __name__ == '__main__':
-    ex_current = 15
-    in_current = 3
-    run_experiment(ex_current, in_current)
 

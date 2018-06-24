@@ -1,8 +1,13 @@
-from brian2 import *
+"""
+Neuron groups with heterogeneity as presented in Simple Model of Spiking
+Neurons, IEEE Transactions on Neural Networks (2003) 14:1569-1572,
+Eugene Izhikevich.
 
-# Neuron groups with heterogeneity as presented in Simple Model of Spiking
-# Neurons, IEEE Transactions on Neural Networks (2003) 14:1569-1572,
-# Eugene Izhikevich.
+The parameters are sampled from uniform distributions to
+obtain a range of behaviours, both in excitatory and inhibitory neurons.
+"""
+
+from brian2 import *
 
 Vt=30*mV
 
@@ -30,7 +35,6 @@ def createGroup(N):
         reset=reset_equations,
         method='rk4'
     )
-
 
 def ExcitatoryNeuronGroup(N):
     G = createGroup(N)

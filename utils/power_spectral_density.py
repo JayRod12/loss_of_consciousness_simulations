@@ -1,22 +1,30 @@
+"""
+This modules contains methods for calculating the moving average firing rate
+and the power-frequency spectrum of a simulation
+"""
+
+
 from scipy.signal import welch
 import numpy as np
 
-# y = f(t)
-# Returns the number of events per time unit averaged over a window of size `dt` and
-# at every time point separated by `shift` time units.
-# Parameters
-#   In:
-#       - a: [float] - Array of floats representing the times at which an event occurs
-#       - dt: int - Window of time over which events are counted
-#       - shift: int - Time shift between every measurement
-#       - start: int - Number of time units at which the measurement starts
-#       - end: int - Number of time units at which the measurement ends
-#   Out:
-#       - output: [float] - Moving average of the rate of events. Represents number of 
-#                           events per time unit calculated as an average over the window.
-#       - ts: [float] - Time steps representing the start time at which every output
-#                       measurement is recorded.
 def moving_average(a, dt, shift, start, end):
+    """
+        y = f(t)
+        Returns the number of events per time unit averaged over a window of size `dt` and
+        at every time point separated by `shift` time units.
+        Parameters
+          In:
+              - a: [float] - Array of floats representing the times at which an event occurs
+              - dt: int - Window of time over which events are counted
+              - shift: int - Time shift between every measurement
+              - start: int - Number of time units at which the measurement starts
+              - end: int - Number of time units at which the measurement ends
+          Out:
+              - output: [float] - Moving average of the rate of events. Represents number of 
+                                  events per time unit calculated as an average over the window.
+              - ts: [float] - Time steps representing the start time at which every output
+                              measurement is recorded.
+    """
     # time steps
     ts = np.linspace(start, end, (end - start) / shift, endpoint=False)
     output = np.zeros(len(ts), dtype=np.float)

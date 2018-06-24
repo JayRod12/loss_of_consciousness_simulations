@@ -1,6 +1,11 @@
-# Input: perturbation data 300ms/500ms
-#   perturbation occurs at tms_time ms
-# Output: PCI index
+
+"""
+Calculate Perturbational Complexity Index from simulation data.
+"""
+
+Input: perturbation data 300ms/500ms
+   perturbation occurs at tms_time ms
+ Output: PCI index
 
 from brian2 import *
 from lz76 import LZ76
@@ -17,7 +22,7 @@ def pci(data, dt, shift, method1=False):
 
     Arguments:
         - data [dict]: must contain the data of a simulation, as obtained by
-            calling ex.run_simulation() for some experiment.
+            calling ex.run_simulation(with_tms=True) for some experiment.
         - dt [int/float]: averaging window size for moving average calculations
         - shift [int/float]: dictates the time intervals between measurements
             in the moving average calculations.
@@ -48,10 +53,12 @@ def pci(data, dt, shift, method1=False):
     post_data = np.zeros(n_mod * steps2)
 
     for mod in gb.groups:
+        # Get spikes associated to module ``mod``
         x = np.array(gb.get_group(mod))
         msk1 = x < t2
         msk2 = np.logical_and(x >= t2, x < t3)
 
+        # Pre and post TMS moving average for the given module
         pre_ma = psd.moving_average(x[msk1], dt, shift, t1, t2)[0]
         post_ma = psd.moving_average(x[msk2], dt, shift, t2, t3)[0]
         if method1:
@@ -68,8 +75,7 @@ def pci(data, dt, shift, method1=False):
         lz_complexity = LZ76(post_binarized) * np.log(len(post_data)) / len(post_data)
     else:
         post_binarized = post_data
-        print("Binary data length: {}".format(len(post_binarized)))
         lz_complexity = LZ76(post_binarized) * np.log(len(post_data)) / len(post_data)
 
-    return pre_data, post_data, lz_complexity
+    return lz_complexity
 
