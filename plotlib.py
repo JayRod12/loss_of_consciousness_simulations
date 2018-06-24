@@ -163,21 +163,25 @@ def plot_stuff(data, start=1000, end=2000, min_mod=None, max_mod=None, save=None
         plt.savefig(save)
     plt.show()
 
-def plot_modules(data, module_list, start=1000, end=2000):
+def plot_modules(data, module_list, dt, shift, start=1000, end=2000, ax = None):
     n_ex, n_in, n_mod, n_ex_mod, n_in_mod, X, Y, X2, Y2 = [
         data[k]
         for k
         in ['n_ex', 'n_in', 'n_mod', 'n_ex_mod', 'n_in_mod', 'X', 'Y', 'X2', 'Y2']
     ]
-    dt, shift = 20, 10
+    if ax is None:
+        _, ax = plt.subplots(figsize=(15, 6))
+
+    dt, shift = 50, 10
 
     X_series, Y_series = pd.Series(X), pd.Series(Y // n_ex_mod)
     gb = X_series.groupby(Y_series)
     for i, mod in enumerate(module_list):
-        ma, t = psd.moving_average(np.array(gb.get_group(mod)), dt, shift, start, end)
-        plt.plot(t, ma, label='Module {}'.format(mod))
-    plt.legend()
-    plt.show()
+        plot_ma(40, np.array(gb.get_group(mod)), dt, shift, ax=ax,start=start, end=end, label='Module {}'.format(mod))
+#        ma, t = psd.moving_average(np.array(gb.get_group(mod)), dt, shift, start, end)
+
+#        ax.plot(t, ma, label='Module {}'.format(mod))
+#    ax.legend()
 
 
 def show_sim_stats(data):

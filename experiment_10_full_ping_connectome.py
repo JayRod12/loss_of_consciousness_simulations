@@ -31,8 +31,9 @@ tms_regions = [90]
 #n_tms = n_ex_mod + n_in_mod * len(tms_regions)
 n_tms = (n_ex_mod + n_in_mod) * len(tms_regions)
 tms_stimulus_time = 1500 * ms
-tms_weight = 30 * mV
+tms_weight = 100 * mV
 tms_duration = 50
+tms_duration = 1
 
 # Thalamus settings
 n_ex_th = 200
@@ -249,7 +250,7 @@ def run_experiment(
 
         TMS_IN_SYN = Synapses(TMS_G, IN_G,
             model='w: volt',
-            on_pre='v -= w',
+            on_pre='v += w',
             delay=1*ms
         )
         echo2 = echo_start("\tTMS_IN_SYN... ")

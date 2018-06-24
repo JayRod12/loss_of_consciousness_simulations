@@ -2,8 +2,8 @@
 import sys
 import time
 
-#VERBOSE = True
-VERBOSE = False
+VERBOSE = True
+#VERBOSE = False
 def echo_start(msg):
     t = time.time()
     if VERBOSE:
