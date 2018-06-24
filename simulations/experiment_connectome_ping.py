@@ -4,6 +4,9 @@ Connectome with PING oscillatory modules on each node.
 This is the main experiment of the project. It's a model of the brain that combines
 human connectome data obtained from Hagmann et al. with PING oscillating groups of neurons
 on each node of the network.
+
+It optionally includes the thalamus module and a TMS stimulus.
+
 """
 
 from brian2 import *

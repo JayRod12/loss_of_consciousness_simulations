@@ -1,3 +1,13 @@
+
+"""
+PING architecture module for the thalamus module.
+
+This experiment sets up a module of neurons following the PING architecture to
+achieve high-frequency oscillatory dynamics in the Gamma band (30-80Hz).
+The parameters are different than the other ping module.
+"""
+
+
 from brian2 import *
 from echo_time import *
 from neuron_groups import *
