@@ -39,6 +39,11 @@ def run_simulation(
         The tuples of weights and delays represent the mean and standard
         deviation of the weights and delays respectively joining the two
         groups of excitatory and inhibitory neurons.
+
+        >>> import models.experiment_ping_module as ex
+        >>> from utils.plotlib import *
+        >>> data = ex.run_simulation()
+        >>> plot_sim(data)
     """
 
     seed(1978331)
