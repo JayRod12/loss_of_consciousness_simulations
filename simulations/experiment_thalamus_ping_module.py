@@ -177,8 +177,4 @@ def run_simulation(
     }
     return RESULTS
 
-if __name__ == '__main__':
-    ex_current = 15
-    in_current = 3
-    run_experiment(ex_current, in_current)
 
